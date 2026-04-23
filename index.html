@@ -1241,14 +1241,12 @@ function bouwKidLog(kid) {
 
 function bouwExport() {
   // Genereer CSV tekst
-  let csv = 'Kind,Datum,Gevoel,Label,Notitie
-';
+  let csv = `Kind,Datum,Gevoel,Label,Notitie\n`;
   ['lily','mila'].forEach(kid => {
     const naam = kid === 'lily' ? 'Lily' : 'Mila';
     Object.entries(state[kid].moods).sort().forEach(([datum, m]) => {
       const note = (m.note || '').replace(/"/g, '""');
-      csv += `"${naam}","${datum}","${m.emoji}","${m.label}","${note}"
-`;
+      csv += `"${naam}","${datum}","${m.emoji}","${m.label}","${note}"\n`;
     });
   });
 
