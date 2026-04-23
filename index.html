@@ -171,31 +171,33 @@
   .outfit-text { font-size: 0.85rem; font-weight: 700; color: var(--black); line-height: 1.4; }
   .outfit-tip { font-size: 0.75rem; color: #888; margin-top: 4px; font-weight: 600; font-style: italic; }
 
-  /* CALENDAR */
-  .week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    /* CALENDAR */
+  .week-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .week-label { font-weight: 800; color: var(--purple-dark); font-size: 0.95rem; }
-  .week-btn { background: var(--pink-light); border: 2px solid var(--pink); border-radius: 12px; padding: 4px 12px; font-size: 1.1rem; cursor: pointer; transition: all 0.15s; font-family: inherit; color: var(--purple-dark); font-weight: 700; }
+  .week-btn { background: var(--pink-light); border: 2px solid var(--pink); border-radius: 12px; padding: 4px 14px; font-size: 1.1rem; cursor: pointer; transition: all 0.15s; font-family: inherit; color: var(--purple-dark); font-weight: 700; }
   .week-btn:hover { background: var(--pink); transform: scale(1.05); }
-  .day-tabs { display: flex; gap: 6px; margin-bottom: 14px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
-  .day-tab { flex-shrink: 0; background: var(--pink-light); border: 2px solid transparent; border-radius: 14px; padding: 6px 12px; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 0.78rem; color: var(--purple-dark); transition: all 0.15s; text-align: center; min-width: 52px; }
-  .day-tab.today { border-color: var(--pink-dark); background: white; }
-  .day-tab.active { background: var(--kuromi-purple); color: white; border-color: var(--kuromi-purple); box-shadow: 0 4px 12px rgba(123,79,166,0.35); }
-  .day-tab .tab-day { font-size: 0.7rem; opacity: 0.8; }
-  .day-tab .tab-num { font-size: 1.1rem; font-weight: 900; line-height: 1.1; }
-  .event-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; margin-bottom: 8px; background: var(--pink-light); border-left: 4px solid var(--pink-dark); transition: transform 0.15s; animation: slideIn 0.3s ease; }
-  @keyframes slideIn { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
-  .event-item:hover { transform: translateX(4px); }
-  .event-item.purple-event { background: var(--purple-light); border-color: var(--purple-dark); }
-  .event-item.mint-event { background: var(--mint); border-color: var(--mint-dark); }
-  .event-time { font-size: 0.75rem; font-weight: 800; color: var(--purple-dark); white-space: nowrap; min-width: 52px; margin-top: 2px; }
-  .event-text { font-size: 0.88rem; font-weight: 700; color: var(--black); line-height: 1.3; }
-  .event-loc { font-size: 0.75rem; color: #888; margin-top: 2px; }
-  .no-events { text-align: center; padding: 20px; color: #aaa; font-size: 0.9rem; font-weight: 700; }
+
+  .week-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; overflow-x: auto; }
+  .dag-kolom { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .dag-header { text-align: center; border-radius: 14px; padding: 8px 4px; font-family: inherit; font-weight: 800; font-size: 0.75rem; color: var(--purple-dark); background: var(--pink-light); border: 2px solid transparent; line-height: 1.3; }
+  .dag-header.vandaag { background: var(--kuromi-purple); color: white; border-color: var(--kuromi-purple); box-shadow: 0 4px 12px rgba(123,79,166,0.35); }
+  .dag-header .hdr-dag { font-size: 0.65rem; opacity: 0.8; }
+  .dag-header .hdr-num { font-size: 1.1rem; font-weight: 900; line-height: 1.1; }
+  .dag-events { display: flex; flex-direction: column; gap: 5px; min-height: 40px; }
+  .event-blok { border-radius: 10px; padding: 5px 7px; font-size: 0.7rem; font-weight: 700; line-height: 1.3; border-left: 3px solid var(--pink-dark); background: var(--pink-light); word-break: break-word; animation: slideIn 0.3s ease; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+  .event-blok-tijd { font-size: 0.6rem; color: #666; font-weight: 700; }
+  .event-blok-naam { color: var(--black); }
+  .dag-leeg { font-size: 0.65rem; color: #ddd; text-align: center; padding: 6px 2px; font-weight: 700; }
+  .cal-badge { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 3px; vertical-align: middle; flex-shrink: 0; }
   .google-connect-btn { display: flex; align-items: center; gap: 10px; background: white; border: 2.5px solid var(--pink-dark); border-radius: 16px; padding: 10px 20px; cursor: pointer; font-family: inherit; font-weight: 800; color: var(--kuromi-purple); font-size: 0.9rem; transition: all 0.2s; margin: 8px auto; width: fit-content; }
   .google-connect-btn:hover { background: var(--pink-light); transform: scale(1.03); }
   .google-status { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; margin-left: 8px; }
   .google-status.connected { background: var(--mint); color: #2a7a56; }
   .google-status.disconnected { background: #ffe0e0; color: #c0392b; }
+  .cal-legenda { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1.5px dashed var(--pink-light); }
+  .cal-legenda-item { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; font-weight: 700; color: #888; }
+  @media(max-width:700px) { .week-grid { grid-template-columns: repeat(7, minmax(86px, 1fr)); } }
 
   /* FACT */
   .fact-box { background: linear-gradient(135deg,var(--yellow),#FFD580); border-radius: 18px; padding: 16px; position: relative; overflow: hidden; border: 2.5px solid #FFB800; }
@@ -664,49 +666,62 @@ function loadFact(){
 }
 
 // GOOGLE CALENDAR
-const CLIENT_ID='379082100860-4q3fm4ulodqtkh7ktaoiv2l3fm2edf74.apps.googleusercontent.com';
-
-// Sla de maandag van de huidige week globaal op zodat showDay altijd de juiste referentie heeft
+const CLIENT_ID = '379082100860-4q3fm4ulodqtkh7ktaoiv2l3fm2edf74.apps.googleusercontent.com';
 let currentMonday = null;
 
-function connectGoogle(){
-  const uri=window.location.href.split('?')[0].split('#')[0];
-  window.location.href=`https://accounts.google.com/o/oauth2/v2/auth?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(uri)}&response_type=token&scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly')}&login_hint=mathieu.w%40gmail.com&prompt=select_account`;
+// Kleurenpalet voor verschillende agenda's
+const CAL_KLEUREN = [
+  '#FF85A1','#9B6FE0','#5ECFA0','#FF9500','#5bc8e8','#e05c9b','#7BC67E','#FF6B6B'
+];
+let calKleurMap = {}; // calendarId -> kleur
+let calNaamMap  = {}; // calendarId -> naam
+
+function connectGoogle() {
+  const uri = window.location.href.split('?')[0].split('#')[0];
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth`
+    + `?client_id=${CLIENT_ID}`
+    + `&redirect_uri=${encodeURIComponent(uri)}`
+    + `&response_type=token`
+    + `&scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly')}`
+    + `&login_hint=mathieu.w%40gmail.com`
+    + `&prompt=select_account`;
 }
 
-function handleOAuth(){
-  const hash=window.location.hash;
-  if(hash.includes('access_token')){
-    const p=new URLSearchParams(hash.substring(1));
-    const t=p.get('access_token');
-    if(t){state.token=t;save();history.replaceState(null,'',window.location.pathname);}
+function handleOAuth() {
+  const hash = window.location.hash;
+  if (hash.includes('access_token')) {
+    const p = new URLSearchParams(hash.substring(1));
+    const t = p.get('access_token');
+    if (t) { state.token = t; save(); history.replaceState(null, '', window.location.pathname); }
   }
-  if(state.token){
-    document.getElementById('googleStatus').textContent='✅ Verbonden';
-    document.getElementById('googleStatus').className='google-status connected';
-    document.getElementById('calendarHint').style.display='none';
-    document.getElementById('connectBtn').style.display='none';
+  if (state.token) {
+    document.getElementById('googleStatus').textContent = '✅ Verbonden';
+    document.getElementById('googleStatus').className = 'google-status connected';
+    document.getElementById('calendarHint').style.display = 'none';
+    document.getElementById('connectBtn').style.display = 'none';
     loadCalendar();
   } else {
     showDemoCalendar();
   }
 }
 
-// Geeft maandag van de gewenste week als Date object (lokale middernacht)
-function getMaandag(off) {
-  const now = new Date();
-  const dag = now.getDay(); // 0=zo,1=ma,...,6=za
-  const diffNaarMa = (dag === 0) ? -6 : 1 - dag;
-  const ma = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffNaarMa + off * 7);
-  return ma; // lokale middernacht, geen setHours nodig want Date(y,m,d) = 00:00:00 lokaal
+// Lokale datumstring "YYYY-MM-DD"
+function datumStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-// Lokale datumstring "YYYY-MM-DD" — vergelijk altijd lokaal, nooit UTC
-function datumStr(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
+// Maandag van de gewenste week (lokale middernacht)
+function getMaandag(off) {
+  const now = new Date();
+  const dag = now.getDay();
+  const diff = (dag === 0) ? -6 : 1 - dag;
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff + off * 7);
+}
+
+async function fetchJSON(url, token) {
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (r.status === 401) { state.token = null; save(); return null; }
+  return r.json();
 }
 
 async function loadCalendar(off = 0) {
@@ -717,15 +732,41 @@ async function loadCalendar(off = 0) {
   if (!state.token) { showDemoCalendar(); return; }
 
   try {
-    const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events`
-      + `?timeMin=${currentMonday.toISOString()}`
-      + `&timeMax=${zondag.toISOString()}`
-      + `&singleEvents=true&orderBy=startTime&maxResults=100`;
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${state.token}` } });
-    if (r.status === 401) { state.token = null; save(); showDemoCalendar(); return; }
-    const d = await r.json();
-    calEvents = d.items || [];
-    renderWeek(calEvents, false);
+    // Stap 1: haal lijst van ALLE agenda's op (ook gedeelde)
+    const calList = await fetchJSON(
+      'https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50',
+      state.token
+    );
+    if (!calList) { showDemoCalendar(); return; }
+
+    // Wijs kleuren toe aan elke agenda
+    calKleurMap = {};
+    calNaamMap  = {};
+    (calList.items || []).forEach((cal, idx) => {
+      calKleurMap[cal.id] = CAL_KLEUREN[idx % CAL_KLEUREN.length];
+      calNaamMap[cal.id]  = cal.summary || cal.id;
+    });
+
+    // Stap 2: haal events op uit ALLE agenda's tegelijk
+    const tijdMin = currentMonday.toISOString();
+    const tijdMax = zondag.toISOString();
+    const promises = (calList.items || []).map(cal =>
+      fetchJSON(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events`
+        + `?timeMin=${tijdMin}&timeMax=${tijdMax}`
+        + `&singleEvents=true&orderBy=startTime&maxResults=100`,
+        state.token
+      ).then(data => {
+        if (!data || !data.items) return [];
+        // Voeg calendarId toe aan elk event
+        return data.items.map(e => ({ ...e, _calId: cal.id }));
+      }).catch(() => [])
+    );
+
+    const results = await Promise.all(promises);
+    calEvents = results.flat();
+    renderWeek(calEvents, false, calList.items || []);
+
   } catch(e) {
     showDemoCalendar();
   }
@@ -733,34 +774,57 @@ async function loadCalendar(off = 0) {
 
 function showDemoCalendar() {
   currentMonday = getMaandag(weekOffset);
-  // Demo events aanmaken met lokale tijden (geen UTC conversie nodig)
+  calKleurMap = { demo: '#FF85A1' };
+  calNaamMap  = { demo: 'Voorbeeldagenda' };
   const ma = currentMonday;
-  function demoDate(dagOffset, uur, min) {
-    return new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + dagOffset, uur, min, 0).toISOString();
-  }
-  function demoDateStr(dagOffset) {
-    const d = new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + dagOffset);
-    return datumStr(d);
-  }
+  const D = (o, h, m) => new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + o, h, m, 0).toISOString();
+  const Ds = o => datumStr(new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + o));
   calEvents = [
-    {summary:'🏫 School',       start:{dateTime:demoDate(0,8,30)},  end:{dateTime:demoDate(0,15,0)}},
-    {summary:'🏫 School',       start:{dateTime:demoDate(1,8,30)},  end:{dateTime:demoDate(1,15,0)}},
-    {summary:'⚽ Voetbaltraining',start:{dateTime:demoDate(1,17,0)}, end:{dateTime:demoDate(1,18,30)}},
-    {summary:'🏫 School',       start:{dateTime:demoDate(2,8,30)},  end:{dateTime:demoDate(2,15,0)}},
-    {summary:'🎨 Tekenen',      start:{dateTime:demoDate(2,15,30)}, end:{dateTime:demoDate(2,16,30)}},
-    {summary:'🏫 School',       start:{dateTime:demoDate(3,8,30)},  end:{dateTime:demoDate(3,15,0)}},
-    {summary:'🏫 School',       start:{dateTime:demoDate(4,8,30)},  end:{dateTime:demoDate(4,15,0)}},
-    {summary:'🎉 Speelafspraak', start:{dateTime:demoDate(4,15,30)},end:{dateTime:demoDate(4,17,0)}},
-    {summary:'🎠 Uitstap',      start:{date:demoDateStr(5)}},
+    {summary:'🏫 School',        _calId:'demo', start:{dateTime:D(0,8,30)},  end:{dateTime:D(0,15,0)}},
+    {summary:'🏫 School',        _calId:'demo', start:{dateTime:D(1,8,30)},  end:{dateTime:D(1,15,0)}},
+    {summary:'⚽ Voetbaltraining',_calId:'demo', start:{dateTime:D(1,17,0)},  end:{dateTime:D(1,18,30)}},
+    {summary:'🏫 School',        _calId:'demo', start:{dateTime:D(2,8,30)},  end:{dateTime:D(2,15,0)}},
+    {summary:'🎨 Tekenen',       _calId:'demo', start:{dateTime:D(2,15,30)}, end:{dateTime:D(2,16,30)}},
+    {summary:'🏫 School',        _calId:'demo', start:{dateTime:D(3,8,30)},  end:{dateTime:D(3,15,0)}},
+    {summary:'🏫 School',        _calId:'demo', start:{dateTime:D(4,8,30)},  end:{dateTime:D(4,15,0)}},
+    {summary:'🎉 Speelafspraak', _calId:'demo', start:{dateTime:D(4,15,30)}, end:{dateTime:D(4,17,0)}},
+    {summary:'🎠 Uitstap',       _calId:'demo', start:{date:Ds(5)}},
   ];
-  renderWeek(calEvents, true);
+  renderWeek(calEvents, true, []);
 }
 
-function renderWeek(evts, demo) {
+function eventsVoorDag(dagStr) {
+  return calEvents.filter(e => {
+    const s = e.start.date
+      ? e.start.date                          // hele dag: al "YYYY-MM-DD"
+      : datumStr(new Date(e.start.dateTime)); // tijdgebonden: naar lokale datum
+    return s === dagStr;
+  }).sort((a, b) => {
+    const ta = a.start.dateTime ? new Date(a.start.dateTime) : new Date(a.start.date);
+    const tb = b.start.dateTime ? new Date(b.start.dateTime) : new Date(b.start.date);
+    return ta - tb;
+  });
+}
+
+function eventBlokHTML(e) {
+  const kleur = calKleurMap[e._calId] || '#FF85A1';
+  let tijdStr = '';
+  if (e.start.dateTime) {
+    const s = new Date(e.start.dateTime);
+    tijdStr = `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')}`;
+  }
+  return `<div class="event-blok" style="border-left-color:${kleur};background:${kleur}18;">
+    ${tijdStr ? `<div class="event-blok-tijd">${tijdStr}</div>` : ''}
+    <div class="event-blok-naam">${e.summary || 'Afspraak'}</div>
+  </div>`;
+}
+
+function renderWeek(evts, demo, calLijst) {
   const now = new Date();
-  const ma = currentMonday;
-  const zo = new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + 6);
-  const wl = `${ma.getDate()} ${DUTCH_MONTHS[ma.getMonth()]} – ${zo.getDate()} ${DUTCH_MONTHS[zo.getMonth()]}`;
+  const ma  = currentMonday;
+  const zo  = new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + 6);
+  const wl  = `${ma.getDate()} ${DUTCH_MONTHS[ma.getMonth()]} – ${zo.getDate()} ${DUTCH_MONTHS[zo.getMonth()]}`;
+  const todayStr = datumStr(now);
 
   let html = `<div class="week-nav">
     <button class="week-btn" onclick="loadCalendar(${weekOffset - 1})">◀</button>
@@ -768,85 +832,44 @@ function renderWeek(evts, demo) {
     <button class="week-btn" onclick="loadCalendar(${weekOffset + 1})">▶</button>
   </div>`;
 
-  if (demo) html += `<div style="text-align:center;font-size:0.75rem;color:#aaa;font-weight:700;margin-bottom:8px;">✨ Voorbeeldagenda — koppel Google Agenda voor echte afspraken</div>`;
+  if (demo) html += `<div style="text-align:center;font-size:0.72rem;color:#aaa;font-weight:700;margin-bottom:10px;">✨ Voorbeeldagenda — koppel Google Agenda voor echte afspraken</div>`;
 
-  // Dag-tabs
-  const todayStr = datumStr(now);
-  let activeIdx = 0;
-  html += '<div class="day-tabs">';
+  // 7-kolommen weekgrid
+  html += '<div class="week-grid">';
   for (let i = 0; i < 7; i++) {
-    const d = new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + i);
+    const d    = new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + i);
     const dStr = datumStr(d);
-    const isToday = dStr === todayStr;
-    // Standaard actieve dag: vandaag als we in de huidige week zitten, anders maandag
-    if (isToday && weekOffset === 0) activeIdx = i;
-    html += `<button class="day-tab ${isToday ? 'today' : ''}" onclick="showDay(this, ${i})" data-day="${i}">
-      <div class="tab-day">${DUTCH_DAYS_SHORT[d.getDay()]}</div>
-      <div class="tab-num">${d.getDate()}</div>
-    </button>`;
+    const isVandaag = dStr === todayStr;
+    const dagEvts   = eventsVoorDag(dStr);
+
+    html += `<div class="dag-kolom">
+      <div class="dag-header ${isVandaag ? 'vandaag' : ''}">
+        <div class="hdr-dag">${DUTCH_DAYS_SHORT[d.getDay()]}</div>
+        <div class="hdr-num">${d.getDate()}</div>
+      </div>
+      <div class="dag-events">
+        ${dagEvts.length
+          ? dagEvts.map(e => eventBlokHTML(e)).join('')
+          : `<div class="dag-leeg">vrij</div>`
+        }
+      </div>
+    </div>`;
   }
   html += '</div>';
-  html += '<div id="dayEvt"></div>';
 
-  document.getElementById('calendarEvents').innerHTML = html;
-
-  // Zet actieve tab en toon events
-  const tabs = document.querySelectorAll('.day-tab');
-  if (tabs[activeIdx]) tabs[activeIdx].classList.add('active');
-  toonDagEvents(activeIdx);
-}
-
-function showDay(btn, i) {
-  document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-  toonDagEvents(i);
-}
-
-function toonDagEvents(dagIdx) {
-  const ma = currentMonday;
-  // Bereken de doeldatum als lokale "YYYY-MM-DD" string
-  const doelDatum = new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + dagIdx);
-  const doelStr = datumStr(doelDatum);
-
-  const dagEvents = calEvents.filter(e => {
-    if (e.start.date) {
-      // Hele-dag event: Google geeft al "YYYY-MM-DD", gewoon vergelijken
-      return e.start.date === doelStr;
-    }
-    if (e.start.dateTime) {
-      // Tijdgebonden event: zet ISO string om naar lokale datum
-      const start = new Date(e.start.dateTime);
-      return datumStr(start) === doelStr;
-    }
-    return false;
-  }).sort((a, b) => {
-    const ta = a.start.dateTime ? new Date(a.start.dateTime) : new Date(a.start.date);
-    const tb = b.start.dateTime ? new Date(b.start.dateTime) : new Date(b.start.date);
-    return ta - tb;
-  });
-
-  const cols = ['', 'purple-event', 'mint-event'];
-  let html = '';
-
-  if (dagEvents.length === 0) {
-    html = '<div class="no-events">🌸 Vrije dag! Lekker spelen! 🌸</div>';
-  } else {
-    dagEvents.forEach((e, idx) => {
-      let tijdStr = 'Hele dag';
-      if (e.start.dateTime) {
-        const s  = new Date(e.start.dateTime);
-        const en = new Date(e.end.dateTime);
-        tijdStr = `${String(s.getHours()).padStart(2,'0')}:${String(s.getMinutes()).padStart(2,'0')} - ${String(en.getHours()).padStart(2,'0')}:${String(en.getMinutes()).padStart(2,'0')}`;
-      }
-      const locatie = e.location ? `<div class="event-loc">📍 ${e.location}</div>` : '';
-      html += `<div class="event-item ${cols[idx % 3]}">
-        <div class="event-time">${tijdStr}</div>
-        <div><div class="event-text">${e.summary || 'Afspraak'}</div>${locatie}</div>
+  // Kalender-legenda (welke kleur = welke agenda)
+  if (calLijst.length > 0) {
+    html += '<div class="cal-legenda">';
+    calLijst.forEach(cal => {
+      const kleur = calKleurMap[cal.id] || '#ccc';
+      html += `<div class="cal-legenda-item">
+        <span class="cal-badge" style="background:${kleur}"></span>${cal.summary || cal.id}
       </div>`;
     });
+    html += '</div>';
   }
 
-  document.getElementById('dayEvt').innerHTML = html;
+  document.getElementById('calendarEvents').innerHTML = html;
 }
 
 // MOOD
