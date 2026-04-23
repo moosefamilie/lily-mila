@@ -279,6 +279,22 @@
   .spinner { width: 32px; height: 32px; border: 3px solid var(--pink-light); border-top-color: var(--pink-dark); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 16px auto; }
   @keyframes spin { to{transform:rotate(360deg)} }
 
+  /* OUDER LOG */
+  .log-tab { background:var(--pink-light);border:2px solid transparent;border-radius:12px;padding:6px 16px;cursor:pointer;font-family:inherit;font-weight:800;font-size:0.85rem;color:var(--purple-dark);transition:all 0.15s; }
+  .log-tab:hover { background:var(--pink); }
+  .log-tab.aktief { background:var(--kuromi-purple);color:white;border-color:var(--kuromi-purple); }
+  .log-rij { display:grid;grid-template-columns:100px 40px 1fr;gap:8px;align-items:start;padding:10px 0;border-bottom:1.5px solid #f5f0ff; }
+  .log-datum { font-size:0.8rem;font-weight:800;color:var(--purple-dark); }
+  .log-emoji { font-size:1.4rem;text-align:center; }
+  .log-note { font-size:0.82rem;color:#555;font-weight:600;line-height:1.4; }
+  .log-sectie-titel { font-family:'Bubblegum Sans',cursive;font-size:1.1rem;color:var(--kuromi-purple);margin:16px 0 8px; }
+  .target-log-rij { display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1.5px solid #f5f0ff; }
+  .target-log-sticker { font-size:1.5rem; }
+  .target-log-info { flex:1; }
+  .target-log-naam { font-size:0.85rem;font-weight:800;color:var(--black); }
+  .target-log-datum { font-size:0.72rem;color:#aaa;font-weight:600; }
+  .geen-data { text-align:center;padding:24px;color:#ccc;font-size:0.9rem;font-weight:700; }
+
   /* SECTION DIVIDER */
   .kids-divider {
     text-align: center; margin: 36px 0 0;
@@ -461,8 +477,54 @@
 
   </div><!-- end kids-row -->
 
-  <div style="text-align:center;padding:28px 0 16px;font-size:0.75rem;color:rgba(123,79,166,0.4);font-weight:700;">
-    Gemaakt met 💕 voor Lily &amp; Mila • Herent 2025
+  <div style="text-align:center;padding:28px 0 20px;">
+    <div style="font-size:0.75rem;color:rgba(123,79,166,0.4);font-weight:700;margin-bottom:10px;">
+      Gemaakt met 💕 voor Lily &amp; Mila • Herent 2025
+    </div>
+    <button onclick="openOuderLog()" style="background:none;border:none;cursor:pointer;font-size:0.7rem;color:rgba(123,79,166,0.3);font-weight:700;text-decoration:underline;font-family:inherit;">
+      🔒 Ouderportaal
+    </button>
+  </div>
+</div>
+
+<!-- OUDER LOG MODAL -->
+<div class="modal-overlay" id="ouderModal" style="align-items:flex-start;padding-top:20px;overflow-y:auto;">
+  <div style="background:white;border-radius:28px;padding:28px;max-width:700px;width:95%;margin:0 auto 20px;box-shadow:0 20px 60px rgba(0,0,0,0.2);border:3px solid var(--purple);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-family:'Bubblegum Sans',cursive;font-size:1.6rem;color:var(--kuromi-purple);">🔒 Ouderportaal</div>
+      <button onclick="sluitOuderLog()" style="background:var(--pink-light);border:none;border-radius:12px;padding:6px 14px;cursor:pointer;font-weight:800;font-size:1rem;">✕</button>
+    </div>
+
+    <!-- PIN -->
+    <div id="ouderPin">
+      <div style="text-align:center;padding:20px 0;">
+        <div style="font-size:2rem;margin-bottom:8px;">🔑</div>
+        <div style="font-weight:800;color:var(--purple-dark);margin-bottom:16px;">Voer de oudercode in</div>
+        <input type="password" id="pinInput" maxlength="4" placeholder="••••"
+          style="font-size:1.5rem;text-align:center;border:2px solid var(--purple);border-radius:14px;padding:10px 20px;width:120px;outline:none;font-family:inherit;"
+          onkeydown="if(event.key==='Enter')checkPin()">
+        <br><br>
+        <button onclick="checkPin()" style="background:linear-gradient(135deg,var(--purple-dark),var(--pink-dark));color:white;border:none;border-radius:16px;padding:10px 28px;font-family:'Bubblegum Sans',cursive;font-size:1.1rem;cursor:pointer;">
+          Inloggen ✨
+        </button>
+        <div id="pinFout" style="color:#e74c3c;font-size:0.85rem;font-weight:700;margin-top:10px;display:none;">
+          Verkeerde code. Probeer opnieuw!
+        </div>
+        <div style="font-size:0.72rem;color:#aaa;margin-top:12px;font-weight:600;">
+          Standaard code: <strong>2025</strong> — wijzig dit in de code van de app
+        </div>
+      </div>
+    </div>
+
+    <!-- LOG INHOUD -->
+    <div id="ouderLogInhoud" style="display:none;">
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+        <button onclick="toonTab('lily')" id="tabLily" class="log-tab aktief">🌸 Lily</button>
+        <button onclick="toonTab('mila')" id="tabMila" class="log-tab">⭐ Mila</button>
+        <button onclick="toonTab('export')" id="tabExport" class="log-tab">📥 Export</button>
+      </div>
+      <div id="logInhoud"></div>
+    </div>
   </div>
 </div>
 
@@ -507,15 +569,63 @@ const MILA_TARGETS=[
   {id:'mi_t5',emoji:'🧹',name:'5x kamer opgeruimd',req:5,unit:'keer',sticker:'🌈',key:'mi_tidy'},
 ];
 
-// STATE
-let state=JSON.parse(localStorage.getItem('kawaii_v3')||'{}');
-if(!state.lily) state.lily={stickers:[],prog:{},done:{},moods:{}};
-if(!state.mila) state.mila={stickers:[],prog:{},done:{},moods:{}};
-if(!state.token) state.token=null;
-const sel={lily:{emoji:null,label:null},mila:{emoji:null,label:null}};
+// STATE - opgeslagen in Artifact cloud storage (cross-device) + localStorage als fallback
+let state = JSON.parse(localStorage.getItem('kawaii_v3') || '{}');
+if (!state.lily)  state.lily  = {stickers:[], prog:{}, done:{}, moods:{}};
+if (!state.mila)  state.mila  = {stickers:[], prog:{}, done:{}, moods:{}};
+if (!state.token) state.token = null;
+const sel = {lily:{emoji:null,label:null}, mila:{emoji:null,label:null}};
 let weekOffset=0, calEvents=[];
 
-function save(){localStorage.setItem('kawaii_v3',JSON.stringify(state));}
+// Altijd lokaal opslaan voor snelheid
+function save() {
+  localStorage.setItem('kawaii_v3', JSON.stringify(state));
+  // Async ook naar cloud opslaan (fire-and-forget)
+  cloudSave().catch(() => {});
+}
+
+async function cloudSave() {
+  if (!window.storage) return;
+  // Sla gevoelens en stickers apart op per kind zodat het overzichtelijk blijft
+  await window.storage.set('kawaii_lily_moods',   JSON.stringify(state.lily.moods));
+  await window.storage.set('kawaii_lily_stickers', JSON.stringify(state.lily.stickers));
+  await window.storage.set('kawaii_lily_prog',     JSON.stringify({prog: state.lily.prog, done: state.lily.done}));
+  await window.storage.set('kawaii_mila_moods',   JSON.stringify(state.mila.moods));
+  await window.storage.set('kawaii_mila_stickers', JSON.stringify(state.mila.stickers));
+  await window.storage.set('kawaii_mila_prog',     JSON.stringify({prog: state.mila.prog, done: state.mila.done}));
+}
+
+async function cloudLoad() {
+  if (!window.storage) return;
+  try {
+    for (const kid of ['lily','mila']) {
+      const moods    = await window.storage.get(`kawaii_${kid}_moods`).catch(()=>null);
+      const stickers = await window.storage.get(`kawaii_${kid}_stickers`).catch(()=>null);
+      const progData = await window.storage.get(`kawaii_${kid}_prog`).catch(()=>null);
+      if (moods)    state[kid].moods    = JSON.parse(moods.value);
+      if (stickers) state[kid].stickers = JSON.parse(stickers.value);
+      if (progData) {
+        const p = JSON.parse(progData.value);
+        state[kid].prog = p.prog || {};
+        state[kid].done = p.done || {};
+      }
+    }
+    // Update UI na cloud load
+    initTargets('lily'); initTargets('mila');
+    const today = new Date().toISOString().split('T')[0];
+    ['lily','mila'].forEach(kid => {
+      if (state[kid].moods[today]) {
+        const m = state[kid].moods[today];
+        document.querySelector(`.${kid}-mood`).querySelectorAll('.mood-btn').forEach(btn => {
+          if (btn.querySelector('.mood-emoji').textContent === m.emoji) btn.classList.add('selected');
+        });
+        document.getElementById(`${kid}Note`).value = m.note || '';
+        sel[kid] = {emoji: m.emoji, label: m.label};
+      }
+    });
+    localStorage.setItem('kawaii_v3', JSON.stringify(state));
+  } catch(e) { /* stille fout — localStorage versie wordt gebruikt */ }
+}
 
 // DATE
 function setupDate(){
@@ -973,11 +1083,205 @@ function launchConfetti(){
   anim();
 }
 
+// OUDER LOG
+const OUDER_PIN = '2025'; // ← Verander dit naar jouw eigen code!
+let logOntgrendeld = false;
+let actiefLogTab = 'lily';
+
+function openOuderLog() {
+  document.getElementById('ouderModal').classList.add('show');
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinFout').style.display = 'none';
+  if (!logOntgrendeld) {
+    document.getElementById('ouderPin').style.display = 'block';
+    document.getElementById('ouderLogInhoud').style.display = 'none';
+    setTimeout(() => document.getElementById('pinInput').focus(), 200);
+  } else {
+    toonTab(actiefLogTab);
+  }
+}
+
+function sluitOuderLog() {
+  document.getElementById('ouderModal').classList.remove('show');
+}
+
+function checkPin() {
+  const ingevoerd = document.getElementById('pinInput').value;
+  if (ingevoerd === OUDER_PIN) {
+    logOntgrendeld = true;
+    document.getElementById('ouderPin').style.display = 'none';
+    document.getElementById('ouderLogInhoud').style.display = 'block';
+    toonTab('lily');
+  } else {
+    document.getElementById('pinFout').style.display = 'block';
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinInput').focus();
+  }
+}
+
+function toonTab(tab) {
+  actiefLogTab = tab;
+  ['lily','mila','export'].forEach(t => {
+    const el = document.getElementById(`tab${t.charAt(0).toUpperCase()+t.slice(1)}`);
+    if (el) el.classList.toggle('aktief', t === tab);
+  });
+  const inhoud = document.getElementById('logInhoud');
+  if (tab === 'lily' || tab === 'mila') {
+    inhoud.innerHTML = bouwKidLog(tab);
+  } else {
+    inhoud.innerHTML = bouwExport();
+  }
+}
+
+function dutchDatum(isoStr) {
+  const d = new Date(isoStr + 'T12:00:00'); // noon om timezone issues te vermijden
+  return `${d.getDate()} ${DUTCH_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function bouwKidLog(kid) {
+  const naam = kid === 'lily' ? 'Lily' : 'Mila';
+  const kleur = kid === 'lily' ? 'var(--lily-accent)' : 'var(--mila-accent)';
+  const targets = kid === 'lily' ? LILY_TARGETS : MILA_TARGETS;
+  const data = state[kid];
+  let html = '';
+
+  // ── Daggevoel log ──
+  html += `<div class="log-sectie-titel">💭 Daggevoel ${naam}</div>`;
+  const moods = Object.entries(data.moods).sort((a,b) => b[0].localeCompare(a[0]));
+  if (moods.length === 0) {
+    html += `<div class="geen-data">Nog geen gevoelens ingevuld.</div>`;
+  } else {
+    // Mini grafiek: laatste 14 dagen
+    html += `<div style="margin-bottom:14px;">
+      <div style="font-size:0.72rem;font-weight:700;color:#aaa;margin-bottom:6px;">Laatste 14 dagen</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">`;
+    const laatste14 = moods.slice(0, 14).reverse();
+    laatste14.forEach(([datum, m]) => {
+      const d = new Date(datum + 'T12:00:00');
+      html += `<div style="text-align:center;min-width:32px;" title="${dutchDatum(datum)}: ${m.label}">
+        <div style="font-size:1.3rem;">${m.emoji}</div>
+        <div style="font-size:0.55rem;color:#aaa;font-weight:700;">${d.getDate()}/${d.getMonth()+1}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+
+    // Volledige lijst
+    html += `<div style="max-height:280px;overflow-y:auto;padding-right:4px;">`;
+    moods.forEach(([datum, m]) => {
+      html += `<div class="log-rij">
+        <div class="log-datum">${dutchDatum(datum)}</div>
+        <div class="log-emoji">${m.emoji}</div>
+        <div class="log-note">
+          <span style="font-weight:800;color:${kleur}">${m.label}</span>
+          ${m.note ? `<br>${m.note}` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+
+    // Statistieken
+    const totaal = moods.length;
+    const tellers = {};
+    moods.forEach(([,m]) => tellers[m.emoji] = (tellers[m.emoji]||0)+1);
+    html += `<div style="background:#f9f5ff;border-radius:14px;padding:12px;margin-top:14px;">
+      <div style="font-size:0.78rem;font-weight:800;color:var(--purple-dark);margin-bottom:8px;">📊 Statistieken (${totaal} dagen)</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        ${Object.entries(tellers).sort((a,b)=>b[1]-a[1]).map(([e,n]) =>
+          `<div style="text-align:center;">
+            <div style="font-size:1.4rem;">${e}</div>
+            <div style="font-size:0.7rem;font-weight:800;color:#888;">${n}x (${Math.round(n/totaal*100)}%)</div>
+          </div>`
+        ).join('')}
+      </div>
+    </div>`;
+  }
+
+  // ── Challenges / doelen log ──
+  html += `<div class="log-sectie-titel" style="margin-top:20px;">🏆 Doelen & Stickers ${naam}</div>`;
+
+  // Voortgang per doel
+  html += `<div style="margin-bottom:12px;">`;
+  targets.forEach(t => {
+    const prog = data.prog[t.key] || 0;
+    const done = !!data.done[t.id];
+    const pct  = Math.min(100, Math.round(prog / t.req * 100));
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1.5px solid #f5f0ff;">
+      <div style="font-size:1.3rem;">${t.emoji}</div>
+      <div style="flex:1;">
+        <div style="font-size:0.82rem;font-weight:800;">${t.name} ${done ? '✅' : ''}</div>
+        <div style="background:#e8e0f0;border-radius:6px;height:6px;margin-top:4px;overflow:hidden;">
+          <div style="background:${kleur};height:100%;width:${pct}%;border-radius:6px;transition:width 0.4s;"></div>
+        </div>
+      </div>
+      <div style="font-size:0.75rem;font-weight:800;color:#aaa;white-space:nowrap;">${prog}/${t.req}</div>
+      ${done ? `<div style="font-size:1.2rem;">${t.sticker}</div>` : ''}
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Verdiende stickers
+  if (data.stickers.length > 0) {
+    html += `<div style="background:#fff8e7;border-radius:14px;padding:12px;border:2px solid #ffe066;">
+      <div style="font-size:0.78rem;font-weight:800;color:#b37a00;margin-bottom:8px;">🌟 Verdiende stickers</div>`;
+    data.stickers.forEach(s => {
+      const d = new Date(s.date);
+      html += `<div class="target-log-rij">
+        <div class="target-log-sticker">${s.sticker}</div>
+        <div class="target-log-info">
+          <div class="target-log-naam">${s.name}</div>
+          <div class="target-log-datum">${d.getDate()} ${DUTCH_MONTHS[d.getMonth()]} ${d.getFullYear()}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  return html;
+}
+
+function bouwExport() {
+  // Genereer CSV tekst
+  let csv = 'Kind,Datum,Gevoel,Label,Notitie
+';
+  ['lily','mila'].forEach(kid => {
+    const naam = kid === 'lily' ? 'Lily' : 'Mila';
+    Object.entries(state[kid].moods).sort().forEach(([datum, m]) => {
+      const note = (m.note || '').replace(/"/g, '""');
+      csv += `"${naam}","${datum}","${m.emoji}","${m.label}","${note}"
+`;
+    });
+  });
+
+  const blob = new Blob(['﻿' + csv], {type:'text/csv;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const datum = new Date().toISOString().split('T')[0];
+
+  return `<div style="text-align:center;padding:20px 0;">
+    <div style="font-size:3rem;margin-bottom:12px;">📥</div>
+    <div style="font-weight:800;color:var(--purple-dark);margin-bottom:8px;">Download de volledige log</div>
+    <div style="font-size:0.82rem;color:#888;margin-bottom:20px;">Alle daggevoel-inzendingen van Lily en Mila<br>als CSV bestand (te openen in Excel)</div>
+    <a href="${url}" download="lily-mila-log-${datum}.csv"
+       style="display:inline-block;background:linear-gradient(135deg,var(--purple-dark),var(--pink-dark));color:white;border-radius:16px;padding:12px 28px;font-family:'Bubblegum Sans',cursive;font-size:1.1rem;text-decoration:none;">
+      📥 Download CSV
+    </a>
+    <div style="margin-top:24px;font-size:0.78rem;color:#aaa;font-weight:600;">
+      Totaal: ${Object.keys(state.lily.moods).length} inzendingen Lily •
+      ${Object.keys(state.mila.moods).length} inzendingen Mila
+    </div>
+  </div>`;
+}
+
+document.getElementById('ouderModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('ouderModal')) sluitOuderLog();
+});
+
 // INIT
 document.addEventListener('DOMContentLoaded',()=>{
   setupDate(); loadWeather(); loadFact();
   initTargets('lily'); initTargets('mila');
   handleOAuth();
+  // Laad cloud data na korte delay (zodat UI al zichtbaar is)
+  setTimeout(() => cloudLoad(), 600);
   const today=new Date().toISOString().split('T')[0];
   ['lily','mila'].forEach(kid=>{
     if(state[kid].moods[today]){
