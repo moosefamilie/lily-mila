@@ -569,62 +569,116 @@ const MILA_TARGETS=[
   {id:'mi_t5',emoji:'🧹',name:'5x kamer opgeruimd',req:5,unit:'keer',sticker:'🌈',key:'mi_tidy'},
 ];
 
-// STATE - opgeslagen in Artifact cloud storage (cross-device) + localStorage als fallback
-let state = JSON.parse(localStorage.getItem('kawaii_v3') || '{}');
+// STATE - opgeslagen in localStorage
+// Voor cross-device sync: exporteer via het ouderportaal en importeer op een ander apparaat
+let state = {};
+try {
+  state = JSON.parse(localStorage.getItem('kawaii_v3') || '{}');
+} catch(e) { state = {}; }
 if (!state.lily)  state.lily  = {stickers:[], prog:{}, done:{}, moods:{}};
 if (!state.mila)  state.mila  = {stickers:[], prog:{}, done:{}, moods:{}};
 if (!state.token) state.token = null;
 const sel = {lily:{emoji:null,label:null}, mila:{emoji:null,label:null}};
 let weekOffset=0, calEvents=[];
 
-// Altijd lokaal opslaan voor snelheid
 function save() {
-  localStorage.setItem('kawaii_v3', JSON.stringify(state));
-  // Async ook naar cloud opslaan (fire-and-forget)
-  cloudSave().catch(() => {});
+  try {
+    localStorage.setItem('kawaii_v3', JSON.stringify(state));
+  } catch(e) {}
+  // Sync naar Google Drive op de achtergrond (alleen als ingelogd)
+  if (state.token) cloudSave().catch(() => {});
 }
 
+// CROSS-DEVICE SYNC via Google Drive (App Data folder - onzichtbaar voor gebruiker)
+// Wordt automatisch gebruikt als de Google agenda al verbonden is
+
 async function cloudSave() {
-  if (!window.storage) return;
-  // Sla gevoelens en stickers apart op per kind zodat het overzichtelijk blijft
-  await window.storage.set('kawaii_lily_moods',   JSON.stringify(state.lily.moods));
-  await window.storage.set('kawaii_lily_stickers', JSON.stringify(state.lily.stickers));
-  await window.storage.set('kawaii_lily_prog',     JSON.stringify({prog: state.lily.prog, done: state.lily.done}));
-  await window.storage.set('kawaii_mila_moods',   JSON.stringify(state.mila.moods));
-  await window.storage.set('kawaii_mila_stickers', JSON.stringify(state.mila.stickers));
-  await window.storage.set('kawaii_mila_prog',     JSON.stringify({prog: state.mila.prog, done: state.mila.done}));
+  if (!state.token) return;
+  try {
+    const inhoud = JSON.stringify({
+      lily: { moods: state.lily.moods, stickers: state.lily.stickers, prog: state.lily.prog, done: state.lily.done },
+      mila: { moods: state.mila.moods, stickers: state.mila.stickers, prog: state.mila.prog, done: state.mila.done },
+    });
+
+    // Zoek bestaand bestand op naam (drive.file ziet alleen bestanden die deze app zelf maakte)
+    const zoek = await fetch(
+      "https://www.googleapis.com/drive/v3/files?q=name%3D'kawaii-kids-data.json'+and+trashed%3Dfalse&fields=files(id)",
+      { headers: { Authorization: `Bearer ${state.token}` } }
+    );
+    if (!zoek.ok) return;
+    const zoekData = await zoek.json();
+    const bestaandId = zoekData.files && zoekData.files[0] ? zoekData.files[0].id : null;
+
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({ name: 'kawaii-kids-data.json', mimeType: 'application/json' })], { type: 'application/json' }));
+    form.append('file', new Blob([inhoud], { type: 'application/json' }));
+
+    const url = bestaandId
+      ? `https://www.googleapis.com/upload/drive/v3/files/${bestaandId}?uploadType=multipart`
+      : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+
+    await fetch(url, {
+      method: bestaandId ? 'PATCH' : 'POST',
+      headers: { Authorization: `Bearer ${state.token}` },
+      body: form
+    });
+  } catch(e) { /* stille fout */ }
 }
 
 async function cloudLoad() {
-  if (!window.storage) return;
+  if (!state.token) return;
   try {
-    for (const kid of ['lily','mila']) {
-      const moods    = await window.storage.get(`kawaii_${kid}_moods`).catch(()=>null);
-      const stickers = await window.storage.get(`kawaii_${kid}_stickers`).catch(()=>null);
-      const progData = await window.storage.get(`kawaii_${kid}_prog`).catch(()=>null);
-      if (moods)    state[kid].moods    = JSON.parse(moods.value);
-      if (stickers) state[kid].stickers = JSON.parse(stickers.value);
-      if (progData) {
-        const p = JSON.parse(progData.value);
-        state[kid].prog = p.prog || {};
-        state[kid].done = p.done || {};
-      }
-    }
-    // Update UI na cloud load
-    initTargets('lily'); initTargets('mila');
-    const today = new Date().toISOString().split('T')[0];
-    ['lily','mila'].forEach(kid => {
-      if (state[kid].moods[today]) {
-        const m = state[kid].moods[today];
-        document.querySelector(`.${kid}-mood`).querySelectorAll('.mood-btn').forEach(btn => {
-          if (btn.querySelector('.mood-emoji').textContent === m.emoji) btn.classList.add('selected');
-        });
-        document.getElementById(`${kid}Note`).value = m.note || '';
-        sel[kid] = {emoji: m.emoji, label: m.label};
-      }
+    // Zoek het databestand op naam
+    const zoek = await fetch(
+      "https://www.googleapis.com/drive/v3/files?q=name%3D'kawaii-kids-data.json'+and+trashed%3Dfalse&fields=files(id,modifiedTime)",
+      { headers: { Authorization: `Bearer ${state.token}` } }
+    );
+    if (!zoek.ok) return;
+    const zoekData = await zoek.json();
+    if (!zoekData.files || !zoekData.files[0]) return;
+
+    // Laad bestandsinhoud
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${zoekData.files[0].id}?alt=media`,
+      { headers: { Authorization: `Bearer ${state.token}` } }
+    );
+    if (!r.ok) return;
+    const cloudData = await r.json();
+
+    // Merge cloud + lokaal: neem het meeste van beide
+    ['lily', 'mila'].forEach(kid => {
+      if (!cloudData[kid]) return;
+      // Moods: samenvoegen (cloud + lokaal)
+      state[kid].moods = Object.assign({}, state[kid].moods, cloudData[kid].moods || {});
+      // Stickers: alleen nieuwe toevoegen
+      const bestaand = new Set(state[kid].stickers.map(s => s.name + s.date));
+      (cloudData[kid].stickers || []).forEach(s => {
+        if (!bestaand.has(s.name + s.date)) state[kid].stickers.push(s);
+      });
+      // Voortgang: neem het maximum
+      Object.entries(cloudData[kid].prog || {}).forEach(([k, v]) => {
+        state[kid].prog[k] = Math.max(state[kid].prog[k] || 0, v);
+      });
+      Object.assign(state[kid].done, cloudData[kid].done || {});
     });
+
+    // Sla gemergede data lokaal op en herlaad UI
     localStorage.setItem('kawaii_v3', JSON.stringify(state));
-  } catch(e) { /* stille fout — localStorage versie wordt gebruikt */ }
+    initTargets('lily');
+    initTargets('mila');
+    const today = new Date().toISOString().split('T')[0];
+    ['lily', 'mila'].forEach(kid => {
+      if (!state[kid].moods[today]) return;
+      const m = state[kid].moods[today];
+      const sect = document.querySelector(`.${kid}-mood`);
+      if (sect) sect.querySelectorAll('.mood-btn').forEach(btn => {
+        if (btn.querySelector('.mood-emoji').textContent === m.emoji) btn.classList.add('selected');
+      });
+      const noteEl = document.getElementById(`${kid}Note`);
+      if (noteEl) noteEl.value = m.note || '';
+      sel[kid] = { emoji: m.emoji, label: m.label };
+    });
+  } catch(e) { /* stille fout — localStorage versie blijft actief */ }
 }
 
 // DATE
@@ -792,7 +846,7 @@ function connectGoogle() {
     + `?client_id=${CLIENT_ID}`
     + `&redirect_uri=${encodeURIComponent(uri)}`
     + `&response_type=token`
-    + `&scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly')}`
+    + `&scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.file')}`
     + `&login_hint=mathieu.w%40gmail.com`
     + `&prompt=select_account`;
 }
