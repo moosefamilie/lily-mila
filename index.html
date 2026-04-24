@@ -202,8 +202,15 @@
   /* FACT */
   .fact-box { background: linear-gradient(135deg,var(--yellow),#FFD580); border-radius: 18px; padding: 16px; position: relative; overflow: hidden; border: 2.5px solid #FFB800; }
   .fact-box::before { content:'✨'; position:absolute; right:12px; top:10px; font-size:1.8rem; opacity:0.4; }
-  .fact-text { font-size: 0.95rem; font-weight: 700; color: #5a3800; line-height: 1.5; }
-  .fact-number { font-family: 'Bubblegum Sans', cursive; font-size: 0.75rem; color: #b37a00; margin-top: 8px; }
+  .fact-text { font-size: 0.95rem; font-weight: 700; color: #5a3800; line-height: 1.5; margin-bottom: 10px; }
+  .fact-number { font-family: 'Bubblegum Sans', cursive; font-size: 0.75rem; color: #b37a00; margin-top: 4px; }
+  .fact-lees-meer {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #5a3800; color: #FFE066; border: none; border-radius: 12px;
+    padding: 6px 14px; font-family: inherit; font-weight: 800; font-size: 0.78rem;
+    cursor: pointer; text-decoration: none; transition: all 0.15s; margin-top: 6px;
+  }
+  .fact-lees-meer:hover { background: #3d2600; transform: scale(1.04); }
 
   /* MOOD */
   .mood-label { font-size: 0.88rem; font-weight: 700; color: #666; margin-bottom: 10px; text-align: center; }
@@ -365,9 +372,14 @@
       </div>
     </div>
     <div class="card card-yellow">
-      <div class="card-title">💡 Feitje van de Dag</div>
+      <div class="card-title">💡 Weetje van de Dag</div>
       <div class="fact-box">
         <div class="fact-text" id="factText">Laden...</div>
+        <div id="factLeesMeer" style="display:none;">
+          <a id="factLink" class="fact-lees-meer" target="_blank" rel="noopener">
+            📖 Lees meer op WikiKids
+          </a>
+        </div>
         <div class="fact-number" id="factNum"></div>
       </div>
     </div>
@@ -578,6 +590,7 @@ try {
 if (!state.lily)  state.lily  = {stickers:[], prog:{}, done:{}, moods:{}};
 if (!state.mila)  state.mila  = {stickers:[], prog:{}, done:{}, moods:{}};
 if (!state.token) state.token = null;
+if (!state.weekSleutel) state.weekSleutel = '';
 const sel = {lily:{emoji:null,label:null}, mila:{emoji:null,label:null}};
 let weekOffset=0, calEvents=[];
 
@@ -821,12 +834,121 @@ function showOutfit(tempNow, feels, tempMax, wind, code, precip) {
   document.getElementById('outfitBox').style.display = 'block';
 }
 
-// FACT
-function loadFact(){
-  const n=new Date(); const dy=Math.floor((n-new Date(n.getFullYear(),0,0))/86400000);
-  const i=dy%FACTS.length;
-  document.getElementById('factText').textContent=FACTS[i];
-  document.getElementById('factNum').textContent=`Feitje #${i+1} van ${FACTS.length}`;
+// WEETJE VAN DE DAG - via Wikipedia Nederlandstalig
+// Fallback lijst als API niet beschikbaar is
+const FALLBACK_FACTS = [
+  { tekst: "Een groep flamingo's heet een flamboyance!", zoekterm: "Flamingo" },
+  { tekst: "Octopussen hebben drie harten en blauw bloed!", zoekterm: "Octopus" },
+  { tekst: "Honing bederft nooit — er is honing gevonden van 3000 jaar oud in Egypte!", zoekterm: "Honing" },
+  { tekst: "Een slak kan wel 3 jaar slapen!", zoekterm: "Slak" },
+  { tekst: "Vlinders proeven met hun poten!", zoekterm: "Vlinder" },
+  { tekst: "Dolfijnen slapen met één oog open!", zoekterm: "Dolfijn" },
+  { tekst: "Een kat heeft 32 spieren in elk oor!", zoekterm: "Kat" },
+  { tekst: "Regenwormen hebben 5 harten!", zoekterm: "Regenworm" },
+  { tekst: "De tong van een giraf is blauwpaars van kleur!", zoekterm: "Giraf" },
+  { tekst: "Pinguïns geven elkaar een kiezelsteentje als huwelijksaanzoek!", zoekterm: "Pinguïn" },
+  { tekst: "Koala's hebben vingerafdrukken die bijna identiek zijn aan die van mensen!", zoekterm: "Koala" },
+  { tekst: "Olifanten zijn de enige dieren die niet kunnen springen!", zoekterm: "Olifant" },
+  { tekst: "Haaien bestaan al langer op aarde dan bomen!", zoekterm: "Haai" },
+  { tekst: "Mieren kunnen dingen dragen die 50 keer hun eigen gewicht zijn!", zoekterm: "Mier" },
+  { tekst: "IJsberen hebben doorzichtige haren — ze lijken wit door lichtbreking!", zoekterm: "IJsbeer" },
+  { tekst: "Bananen zijn botanisch gezien een bes!", zoekterm: "Banaan" },
+  { tekst: "Kwallen hebben geen hersenen, hart of botten!", zoekterm: "Kwal" },
+  { tekst: "Watermeloen bestaat voor 92% uit water!", zoekterm: "Watermeloen" },
+  { tekst: "Krokodillen kunnen hun tong niet uitsteken!", zoekterm: "Krokodil" },
+  { tekst: "Paarden slapen grotendeels staand!", zoekterm: "Paard" },
+  { tekst: "Licht van de zon doet er 8 minuten over om de aarde te bereiken!", zoekterm: "Zon" },
+  { tekst: "Popcorn bestaat al meer dan 5000 jaar!", zoekterm: "Popcorn" },
+  { tekst: "Een groep uilen heet een parlement!", zoekterm: "Uil" },
+  { tekst: "Vissen knipperen nooit met hun ogen — ze hebben geen oogleden!", zoekterm: "Vis" },
+  { tekst: "Schildpadden zijn al meer dan 200 miljoen jaar oud als diersoort!", zoekterm: "Schildpad" },
+  { tekst: "Zeepaardje-vaders dragen de jongen en bevallen zelf!", zoekterm: "Zeepaardjes" },
+  { tekst: "Een groep luiaards heet een 'bed'!", zoekterm: "Luiaard" },
+  { tekst: "Bijen communiceren via een speciale danstaal!", zoekterm: "Bij" },
+  { tekst: "Kameleons veranderen van kleur om hun stemming te tonen, niet om te camoufleren!", zoekterm: "Kameleon" },
+  { tekst: "Een sneeuwvlok heeft altijd precies 6 hoekpunten!", zoekterm: "Sneeuwvlok" },
+  { tekst: "De hartslag van een blauwe vinvis is zo traag dat je er 10 seconden op wacht!", zoekterm: "Blauwe vinvis" },
+];
+
+// Wikipedia zoekonderwerpen voor kinderweetjes
+const WIKI_ONDERWERPEN = [
+  "Cheetah","Walvis","Vliegtuig","Vulkaan","Regenwoud","Koraalrif","Dinosaurus",
+  "Ruimtestation","Maan","Mars (planeet)","Aurora borealis","Ijsberg","Aardbeving",
+  "Tornado","Waterval","Vliegtuig","Magneet","Kristal","Fossiel","Meteoriet",
+  "Adelaar","Kolibri","Baobab","Bamboe","Cactus","Diepzee","Permafrost",
+  "Bliksem","Regenboog","Getijden"
+];
+
+async function loadFact() {
+  const now = new Date();
+  const dagVanJaar = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+  const cacheSleutel = `kawaii_weetje_${now.toISOString().split('T')[0]}`;
+
+  // Check cache — max 1 API call per dag
+  try {
+    const cached = localStorage.getItem(cacheSleutel);
+    if (cached) {
+      const data = JSON.parse(cached);
+      toonFact(data.tekst, data.link, data.bron);
+      return;
+    }
+  } catch(e) {}
+
+  // Kies een Wikipedia onderwerp op basis van dag van het jaar
+  const onderwerp = WIKI_ONDERWERPEN[dagVanJaar % WIKI_ONDERWERPEN.length];
+
+  try {
+    // Wikipedia summary API — geeft een korte samenvatting
+    const url = `https://nl.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(onderwerp)}`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('API fout');
+    const data = await r.json();
+
+    // Haal de eerste zin uit de samenvatting
+    const volledigeTekst = data.extract || '';
+    const zinnen = volledigeTekst.split(/(?<=[.!?])\s+/);
+    const eersteZin = zinnen[0] || volledigeTekst.slice(0, 150);
+    // Maak het kind-vriendelijk: max 180 tekens
+    const weetje = eersteZin.length > 180 ? eersteZin.slice(0, 177) + '...' : eersteZin;
+
+    // WikiKids zoeklink
+    const wikikidzLink = `https://www.wikiwijs.nl/zoek/?zoekterm=${encodeURIComponent(onderwerp)}`;
+    const wikikidzBetere = `https://nl.wikipedia.org/wiki/${encodeURIComponent(onderwerp)}`;
+
+    // Cache voor vandaag
+    try {
+      localStorage.setItem(cacheSleutel, JSON.stringify({
+        tekst: `🔍 ${onderwerp}: ${weetje}`,
+        link: `https://www.wikiwijs.nl/zoek/?zoekterm=${encodeURIComponent(onderwerp)}`,
+        bron: onderwerp
+      }));
+      // Verwijder cache van gisteren
+      const gisteren = new Date(now - 86400000).toISOString().split('T')[0];
+      localStorage.removeItem(`kawaii_weetje_${gisteren}`);
+    } catch(e) {}
+
+    toonFact(`🔍 ${onderwerp}: ${weetje}`,
+      `https://www.wikiwijs.nl/zoek/?zoekterm=${encodeURIComponent(onderwerp)}`,
+      onderwerp);
+
+  } catch(e) {
+    // Fallback naar hardcoded lijst
+    const fb = FALLBACK_FACTS[dagVanJaar % FALLBACK_FACTS.length];
+    toonFact(fb.tekst,
+      `https://www.wikiwijs.nl/zoek/?zoekterm=${encodeURIComponent(fb.zoekterm)}`,
+      fb.zoekterm);
+  }
+}
+
+function toonFact(tekst, link, bron) {
+  document.getElementById('factText').textContent = tekst;
+  const linkEl = document.getElementById('factLink');
+  if (linkEl && link) {
+    linkEl.href = link;
+    linkEl.title = `Meer over ${bron} op WikiWijs`;
+    document.getElementById('factLeesMeer').style.display = 'block';
+  }
+  document.getElementById('factNum').textContent = `📚 Weetje van vandaag`;
 }
 
 // GOOGLE CALENDAR
@@ -1137,6 +1259,47 @@ function launchConfetti(){
   anim();
 }
 
+// WEKELIJKSE RESET
+function getWeekSleutel() {
+  // Geeft "JJJJ-WW" — week begint op maandag, reset op zondag 23:59
+  const now = new Date();
+  const dag = now.getDay(); // 0=zo
+  // Bereken maandag van deze week
+  const diffNaarMa = dag === 0 ? -6 : 1 - dag;
+  const maandag = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffNaarMa);
+  const jaar = maandag.getFullYear();
+  // ISO weeknummer berekenen
+  const start = new Date(jaar, 0, 1);
+  const weekNr = Math.ceil(((maandag - start) / 86400000 + start.getDay() + 1) / 7);
+  return `${jaar}-W${String(weekNr).padStart(2, '0')}`;
+}
+
+function checkWeekReset() {
+  const huidigeWeek = getWeekSleutel();
+  if (state.weekSleutel === huidigeWeek) return; // Zelfde week, geen reset nodig
+
+  const isEersteKeer = state.weekSleutel === '';
+
+  // Reset voortgang van doelen (NIET stickers — die blijven voor altijd!)
+  ['lily', 'mila'].forEach(kid => {
+    state[kid].prog = {};
+    state[kid].done = {};
+  });
+  state.weekSleutel = huidigeWeek;
+  save();
+
+  // Toon feestelijk berichtje (niet bij allereerste keer laden)
+  if (!isEersteKeer) {
+    setTimeout(() => {
+      showModal('🎉', 'Nieuwe week, nieuwe uitdagingen!',
+        `Het is een nieuwe week!
+Alle doelen staan weer op nul.
+Komen jullie ze opnieuw halen? 💪✨`);
+      launchConfetti();
+    }, 800);
+  }
+}
+
 // OUDER LOG
 const OUDER_PIN = '2025'; // ← Verander dit naar jouw eigen code!
 let logOntgrendeld = false;
@@ -1330,6 +1493,7 @@ document.getElementById('ouderModal').addEventListener('click', e => {
 // INIT
 document.addEventListener('DOMContentLoaded',()=>{
   setupDate(); loadWeather(); loadFact();
+  checkWeekReset(); // Reset doelen als nieuwe week
   initTargets('lily'); initTargets('mila');
   handleOAuth();
   // Laad cloud data na korte delay (zodat UI al zichtbaar is)
