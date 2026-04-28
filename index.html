@@ -545,41 +545,212 @@ const DUTCH_DAYS=['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag',
 const DUTCH_DAYS_SHORT=['Zo','Ma','Di','Wo','Do','Vr','Za'];
 const DUTCH_MONTHS=['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
 
-const FACTS=[
-  "Een groep flamingo's heet een flamboyance! 🦩","Octopussen hebben drie harten en blauw bloed! 🐙",
-  "Honing bederft nooit - ze vonden honing van 3000 jaar oud in Egypte! 🍯","Een slak kan 3 jaar slapen! 🐌",
-  "Vlinders proeven met hun poten! 🦋","Dolfijnen slapen met één oog open! 🐬",
-  "Een kat heeft 32 spieren in elk oor! 🐱","Regenwormen hebben 5 harten! 🪱",
-  "De tong van een giraf is blauwpaars! 🦒","Pinguïns stellen voor met een kiezelsteentje! 🐧",
-  "Koala's vingerafdrukken lijken op die van mensen! 🐨","Olifanten kunnen niet springen! 🐘",
-  "Een ster die je ziet is misschien al duizenden jaren dood! ⭐","Haaien bestaan al langer dan bomen! 🦈",
-  "Mieren kunnen 50x hun eigen gewicht dragen! 🐜","Een dag op Venus duurt langer dan een jaar op Venus! 🪐",
-  "IJsberen hebben doorzichtige haren, niet witte! 🐻‍❄️","Bananen zijn technisch gezien een bes! 🍌",
-  "Kwallen hebben geen hersenen, hart of botten! 🪼","Een groep katten heet een clowder! 🐱",
-  "Watermeloen bestaat voor 92% uit water! 🍉","De kortste oorlog duurde 38 minuten! ⚔️",
-  "Krokodillen kunnen niet hun tong uitsteken! 🐊","Konijnen kunnen niet overgeven! 🐰",
-  "De neus kan meer dan 1 biljoen geuren onderscheiden! 👃","Schildpadden ademen via hun achterste! 🐢",
-  "Paarden slapen meestal staand! 🐴","Een groep uilen heet een parlement! 🦉",
-  "Vis knippert nooit met zijn ogen! 🐟","Zonlicht doet er 8 minuten over om de aarde te bereiken! ☀️",
-  "Popcorn bestaat al meer dan 5000 jaar! 🍿",
+
+
+// CHALLENGE BACKLOG — 30 mogelijke doelen per kind
+// Elke week worden er willekeurig 6 gekozen op basis van de weeksleutel
+const CHALLENGE_BACKLOG = [
+  {id:'c01', emoji:'📅', name:'7 dagen je gevoel bewaard',   req:7,  unit:'dag',  sticker:'🌟'},
+  {id:'c02', emoji:'😊', name:'5 super blije dagen!',         req:5,  unit:'dag',  sticker:'🎀'},
+  {id:'c03', emoji:'📚', name:'3x lezen',                     req:3,  unit:'keer', sticker:'🌸'},
+  {id:'c04', emoji:'⚽', name:'4x gesport',                   req:4,  unit:'keer', sticker:'🏅'},
+  {id:'c05', emoji:'🤝', name:'3x iemand geholpen',           req:3,  unit:'keer', sticker:'💕'},
+  {id:'c06', emoji:'🧹', name:'5x kamer opgeruimd',           req:5,  unit:'keer', sticker:'✨'},
+  {id:'c07', emoji:'🥦', name:'5x groenten gegeten',          req:5,  unit:'keer', sticker:'🥗'},
+  {id:'c08', emoji:'🎨', name:'3x getekend of geknutseld',    req:3,  unit:'keer', sticker:'🖍️'},
+  {id:'c09', emoji:'🚿', name:'7x op tijd gedoucht',          req:7,  unit:'dag',  sticker:'🧼'},
+  {id:'c10', emoji:'🌿', name:'3x buiten gespeeld',           req:3,  unit:'keer', sticker:'🌳'},
+  {id:'c11', emoji:'🎵', name:'3x muziek geoefend',           req:3,  unit:'keer', sticker:'🎶'},
+  {id:'c12', emoji:'🧘', name:'3x rustig ademgeoefend',       req:3,  unit:'keer', sticker:'🕊️'},
+  {id:'c13', emoji:'💌', name:'Iemand een lief berichtje gestuurd', req:1, unit:'keer', sticker:'💌'},
+  {id:'c14', emoji:'🧩', name:'3x een spel gespeeld',         req:3,  unit:'keer', sticker:'🎲'},
+  {id:'c15', emoji:'🌙', name:'5x op tijd naar bed',          req:5,  unit:'dag',  sticker:'⭐'},
+  {id:'c16', emoji:'🍎', name:'5x fruit gegeten',             req:5,  unit:'keer', sticker:'🍓'},
+  {id:'c17', emoji:'💧', name:'5 dagen voldoende gedronken',  req:5,  unit:'dag',  sticker:'💧'},
+  {id:'c18', emoji:'📝', name:'3x huiswerk op tijd gedaan',   req:3,  unit:'keer', sticker:'📒'},
+  {id:'c19', emoji:'🐾', name:'3x voor het huisdier gezorgd', req:3,  unit:'keer', sticker:'🐾'},
+  {id:'c20', emoji:'👟', name:'3x een wandeling gemaakt',     req:3,  unit:'keer', sticker:'🌻'},
+  {id:'c21', emoji:'🤗', name:'3x iemand geknuffeld',         req:3,  unit:'keer', sticker:'🧡'},
+  {id:'c22', emoji:'🍳', name:'1x meegehelpen koken',         req:1,  unit:'keer', sticker:'👨‍🍳'},
+  {id:'c23', emoji:'📷', name:'3x iets moois gefotografeerd', req:3,  unit:'keer', sticker:'📸'},
+  {id:'c24', emoji:'🧺', name:'2x meegehelpen met was vouwen',req:2,  unit:'keer', sticker:'🌈'},
+  {id:'c25', emoji:'😴', name:'5x voor 9u in bed gelegen',    req:5,  unit:'dag',  sticker:'🌙'},
+  {id:'c26', emoji:'🎤', name:'3x hardop gezongen',           req:3,  unit:'keer', sticker:'🎤'},
+  {id:'c27', emoji:'🌈', name:'3x iets nieuws geprobeerd',    req:3,  unit:'keer', sticker:'🦋'},
+  {id:'c28', emoji:'♟️', name:'2x een gezelschapsspel gespeeld', req:2, unit:'keer', sticker:'🏆'},
+  {id:'c29', emoji:'🌺', name:'1x bloemen of een plantje water gegeven', req:1, unit:'keer', sticker:'🌷'},
+  {id:'c30', emoji:'⏰', name:'5x zonder morren opgestaan',   req:5,  unit:'dag',  sticker:'🌤️'},
 ];
 
-const LILY_TARGETS=[
-  {id:'ly_m7',emoji:'📅',name:'7 dagen gevoel bewaard',req:7,unit:'dag',sticker:'🌟',key:'ly_mood'},
-  {id:'ly_h5',emoji:'😊',name:'5 super blije dagen!',req:5,unit:'dag',sticker:'🎀',key:'ly_happy'},
-  {id:'ly_r3',emoji:'📚',name:'3x lezen',req:3,unit:'keer',sticker:'🌸',key:'ly_read'},
-  {id:'ly_s4',emoji:'⚽',name:'4x gesport',req:4,unit:'keer',sticker:'🏅',key:'ly_sport'},
-  {id:'ly_p3',emoji:'🤝',name:'3x anderen geholpen',req:3,unit:'keer',sticker:'💕',key:'ly_help'},
-  {id:'ly_t5',emoji:'🧹',name:'5x kamer opgeruimd',req:5,unit:'keer',sticker:'✨',key:'ly_tidy'},
-];
-const MILA_TARGETS=[
-  {id:'mi_m7',emoji:'📅',name:'7 dagen gevoel bewaard',req:7,unit:'dag',sticker:'⭐',key:'mi_mood'},
-  {id:'mi_h5',emoji:'😊',name:'5 super blije dagen!',req:5,unit:'dag',sticker:'💜',key:'mi_happy'},
-  {id:'mi_r3',emoji:'📚',name:'3x lezen',req:3,unit:'keer',sticker:'🌙',key:'mi_read'},
-  {id:'mi_s4',emoji:'🏊',name:'4x gesport',req:4,unit:'keer',sticker:'🏅',key:'mi_sport'},
-  {id:'mi_p3',emoji:'🤝',name:'3x anderen geholpen',req:3,unit:'keer',sticker:'💫',key:'mi_help'},
-  {id:'mi_t5',emoji:'🧹',name:'5x kamer opgeruimd',req:5,unit:'keer',sticker:'🌈',key:'mi_tidy'},
-];
+// Kies deterministisch 6 willekeurige challenges op basis van weeksleutel + kid
+// Zo krijgt elk kind andere challenges, maar zijn ze de hele week stabiel
+function kiesWeekChallenges(weekSleutel, kid) {
+  // Simpele hash van weekSleutel + kind naar een getal
+  const seed = [...(weekSleutel + kid)].reduce((acc, c) => acc * 31 + c.charCodeAt(0), 0);
+  const shuffled = [...CHALLENGE_BACKLOG];
+  // Fisher-Yates shuffle met deterministische seed
+  let s = Math.abs(seed);
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    const j = Math.abs(s) % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  // Geef elk challenge een kid-specifieke key en id
+  return shuffled.slice(0, 6).map(c => ({
+    ...c,
+    id:  `${kid}_${c.id}`,
+    key: `${kid}_${c.id}_${weekSleutel}`,
+  }));
+}
+
+// Geeft de actieve challenges voor een kid deze week
+function getActieveChallenges(kid) {
+  const week = state.weekSleutel || getWeekSleutel();
+  return kiesWeekChallenges(week, kid);
+}
+
+// MOOD
+function selectMood(kid, btn, emoji, label) {
+  btn.closest(`.${kid}-mood`).querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  sel[kid] = { emoji, label };
+}
+
+function saveMood(kid) {
+  const { emoji, label } = sel[kid];
+  if (!emoji) { showToast('Kies eerst hoe je je voelt! 🌸'); return; }
+  const note  = document.getElementById(`${kid}Note`).value;
+  const today = new Date().toISOString().split('T')[0];
+  const isNew = !state[kid].moods[today];
+  state[kid].moods[today] = { emoji, label, note };
+
+  if (isNew) {
+    // Voortgang bijhouden voor mood-gebaseerde challenges
+    const challenges = getActieveChallenges(kid);
+    challenges.forEach(c => {
+      if (c.id.includes('c01')) addProg(kid, c.key); // 7 dagen bewaard
+      if (c.id.includes('c02') && emoji === '😊') addProg(kid, c.key); // blije dag
+    });
+  }
+  save();
+  const msg = document.getElementById(`${kid}Saved`);
+  msg.style.display = 'block';
+  setTimeout(() => msg.style.display = 'none', 3000);
+  showToast(`${emoji} Opgeslagen! Super gedaan!`);
+  checkTargets(kid);
+}
+
+// TARGETS / CHALLENGES
+function initTargets(kid) {
+  const challenges = getActieveChallenges(kid);
+  const grid = document.getElementById(`${kid}TargetsGrid`);
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  challenges.forEach(target => {
+    const prog = state[kid].prog[target.key] || 0;
+    const done = !!state[kid].done[target.id];
+    const pct  = Math.min(100, Math.round((prog / target.req) * 100));
+    const barCol = kid === 'lily'
+      ? 'linear-gradient(90deg,var(--lily-accent),var(--lily-primary))'
+      : 'linear-gradient(90deg,var(--mila-accent),var(--mila-primary))';
+
+    const div = document.createElement('div');
+    div.className = `target-item ${done ? 'completed' : ''}`;
+    div.onclick   = () => bumpTarget(kid, target);
+    div.innerHTML = `
+      ${done ? '<div class="target-check">✓</div>' : ''}
+      <div class="target-emoji">${target.emoji}</div>
+      <div class="target-name">${target.name}</div>
+      <div class="target-progress">${prog}/${target.req} ${target.unit}</div>
+      <div style="background:#e8e0f0;border-radius:8px;height:5px;margin-top:5px;overflow:hidden;">
+        <div style="background:${done ? 'var(--mint-dark)' : barCol};height:100%;width:${pct}%;border-radius:8px;transition:width 0.4s;"></div>
+      </div>`;
+    grid.appendChild(div);
+  });
+
+  renderStickers(kid);
+}
+
+function bumpTarget(kid, target) {
+  if (state[kid].done[target.id]) { showToast('Al behaald! 🌟 Geweldig!'); return; }
+  addProg(kid, target.key);
+  checkTargets(kid);
+  initTargets(kid);
+}
+
+function addProg(kid, key) {
+  if (!state[kid].prog[key]) state[kid].prog[key] = 0;
+  state[kid].prog[key]++;
+  save();
+}
+
+function checkTargets(kid) {
+  const challenges = getActieveChallenges(kid);
+  challenges.forEach(target => {
+    const prog = state[kid].prog[target.key] || 0;
+    if (prog >= target.req && !state[kid].done[target.id]) {
+      state[kid].done[target.id] = true;
+      state[kid].stickers.push({ sticker: target.sticker, date: new Date().toISOString(), name: target.name });
+      save();
+      initTargets(kid);
+      launchConfetti();
+      const naam = kid === 'lily' ? 'Lily' : 'Mila';
+      showModal('🎉', `${naam} heeft een doel behaald!`,
+        `Wauw! Je hebt "${target.name}" voltooid!\nJe wint sticker: ${target.sticker} ✨`);
+    }
+  });
+}
+
+function renderStickers(kid) {
+  const el = document.getElementById(`${kid}Stickers`);
+  if (!el) return;
+  el.innerHTML = state[kid].stickers.length
+    ? state[kid].stickers.map(s => `<div class="sticker" title="${s.name}">${s.sticker}</div>`).join('')
+    : '<div class="no-stickers">Verdien je eerste sticker! ✨</div>';
+}
+
+// MODAL & TOAST
+function showModal(emoji, title, text) {
+  document.getElementById('modal-emoji').textContent = emoji;
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-text').textContent  = text;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// CONFETTI
+function launchConfetti() {
+  const c = document.getElementById('confettiCanvas');
+  c.width = window.innerWidth; c.height = window.innerHeight;
+  const ctx = c.getContext('2d');
+  const cols = ['#FFB7C5','#C9A8FF','#B8F0D8','#FFE066','#FF85A1','#9B6FE0'];
+  const p = Array.from({length:120}, () => ({
+    x: Math.random()*c.width, y: -20,
+    vx: (Math.random()-.5)*4, vy: Math.random()*4+2,
+    col: cols[Math.floor(Math.random()*6)],
+    sz: Math.random()*8+4, rot: Math.random()*360, rv: (Math.random()-.5)*8
+  }));
+  let f = 0;
+  function anim() {
+    ctx.clearRect(0,0,c.width,c.height);
+    p.forEach(q => {
+      q.x+=q.vx; q.y+=q.vy; q.vy+=0.06; q.rot+=q.rv;
+      ctx.save(); ctx.translate(q.x,q.y); ctx.rotate(q.rot*Math.PI/180);
+      ctx.fillStyle=q.col; ctx.fillRect(-q.sz/2,-q.sz/4,q.sz,q.sz/2); ctx.restore();
+    });
+    if (++f < 150) requestAnimationFrame(anim);
+    else ctx.clearRect(0,0,c.width,c.height);
+  }
+  anim();
+}
 
 // STATE - opgeslagen in localStorage
 // Voor cross-device sync: exporteer via het ouderportaal en importeer op een ander apparaat
