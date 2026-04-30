@@ -760,7 +760,8 @@ try {
 } catch(e) { state = {}; }
 if (!state.lily)  state.lily  = {stickers:[], prog:{}, done:{}, moods:{}};
 if (!state.mila)  state.mila  = {stickers:[], prog:{}, done:{}, moods:{}};
-if (!state.token) state.token = null;
+if (!state.token)       state.token       = null;
+if (!state.tokenExpiry) state.tokenExpiry = null;
 if (!state.weekSleutel) state.weekSleutel = '';
 const sel = {lily:{emoji:null,label:null}, mila:{emoji:null,label:null}};
 let weekOffset=0, calEvents=[];
@@ -771,6 +772,63 @@ function save() {
   } catch(e) {}
   // Sync naar Google Drive op de achtergrond (alleen als ingelogd)
   if (state.token) cloudSave().catch(() => {});
+}
+
+// GOOGLE OAUTH
+const CLIENT_ID = '379082100860-4q3fm4ulodqtkh7ktaoiv2l3fm2edf74.apps.googleusercontent.com';
+const SCOPES    = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.file';
+
+function connectGoogle() {
+  const redirectUri = window.location.href.split('?')[0].split('#')[0];
+  const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
+    + '?client_id='      + encodeURIComponent(CLIENT_ID)
+    + '&redirect_uri='   + encodeURIComponent(redirectUri)
+    + '&response_type=token'
+    + '&scope='          + encodeURIComponent(SCOPES)
+    + '&login_hint=mathieu.w%40gmail.com'
+    + '&prompt=consent';
+  window.location.href = authUrl;
+}
+
+function handleOAuth() {
+  // Lees token uit URL hash na terugkeer van Google
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const token  = params.get('access_token');
+    const expiry = params.get('expires_in');
+    if (token) {
+      state.token       = token;
+      state.tokenExpiry = Date.now() + (parseInt(expiry) || 3600) * 1000;
+      save();
+      history.replaceState(null, '', window.location.pathname);
+    }
+  }
+
+  // Check of token nog geldig is (met 5 minuten marge)
+  if (state.token && state.tokenExpiry && Date.now() < state.tokenExpiry - 300000) {
+    setGoogleVerbonden(true);
+    loadCalendar();
+  } else {
+    // Token ontbreekt of verlopen — reset
+    state.token       = null;
+    state.tokenExpiry = null;
+    save();
+    setGoogleVerbonden(false);
+    showDemoCalendar();
+  }
+}
+
+function setGoogleVerbonden(verbonden) {
+  const statusEl = document.getElementById('googleStatus');
+  const hintEl   = document.getElementById('calendarHint');
+  const btnEl    = document.getElementById('connectBtn');
+  if (statusEl) {
+    statusEl.textContent = verbonden ? '✅ Verbonden' : '⭕ Niet verbonden';
+    statusEl.className   = 'google-status ' + (verbonden ? 'connected' : 'disconnected');
+  }
+  if (hintEl) hintEl.style.display = verbonden ? 'none' : 'block';
+  if (btnEl)  btnEl.style.display  = verbonden ? 'none' : 'flex';
 }
 
 // CROSS-DEVICE SYNC via Google Drive (App Data folder - onzichtbaar voor gebruiker)
