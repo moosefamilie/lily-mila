@@ -774,46 +774,69 @@ function save() {
   if (state.token) cloudSave().catch(() => {});
 }
 
-// GOOGLE OAUTH
+// GOOGLE OAUTH + CROSS-DEVICE SYNC via Google Drive
 const CLIENT_ID = '379082100860-4q3fm4ulodqtkh7ktaoiv2l3fm2edf74.apps.googleusercontent.com';
 const SCOPES    = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.file';
 
 function connectGoogle() {
-  const redirectUri = window.location.href.split('?')[0].split('#')[0];
+  // Gebruik een popup venster — werkt betrouwbaarder dan redirect op GitHub Pages
+  const redirectUri = window.location.origin + window.location.pathname;
   const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
     + '?client_id='      + encodeURIComponent(CLIENT_ID)
     + '&redirect_uri='   + encodeURIComponent(redirectUri)
     + '&response_type=token'
     + '&scope='          + encodeURIComponent(SCOPES)
     + '&login_hint=mathieu.w%40gmail.com'
-    + '&prompt=consent';
-  window.location.href = authUrl;
+    + '&prompt=select_account';
+
+  // Open in popup zodat de hoofdpagina niet verlaten wordt
+  const popup = window.open(authUrl, 'google-auth',
+    'width=500,height=650,left=' + (screen.width/2 - 250) + ',top=' + (screen.height/2 - 325));
+
+  // Luister op berichten van de popup
+  const interval = setInterval(() => {
+    try {
+      if (!popup || popup.closed) {
+        clearInterval(interval);
+        return;
+      }
+      const popupUrl = popup.location.href;
+      if (popupUrl && popupUrl.includes('access_token')) {
+        const hash   = popup.location.hash;
+        const params = new URLSearchParams(hash.substring(1));
+        const token  = params.get('access_token');
+        const expiry = params.get('expires_in');
+        popup.close();
+        clearInterval(interval);
+        if (token) {
+          state.token       = token;
+          state.tokenExpiry = Date.now() + (parseInt(expiry) || 3600) * 1000;
+          save();
+          setGoogleVerbonden(true);
+          loadCalendar();
+          // Laad cloud data na verbinding
+          setTimeout(() => cloudLoad(), 500);
+        }
+      }
+    } catch(e) {
+      // Cross-origin block — popup is nog op Google pagina, wachten...
+    }
+  }, 500);
 }
 
 function handleOAuth() {
-  // Lees token uit URL hash na terugkeer van Google
-  const hash = window.location.hash;
-  if (hash && hash.includes('access_token')) {
-    const params = new URLSearchParams(hash.substring(1));
-    const token  = params.get('access_token');
-    const expiry = params.get('expires_in');
-    if (token) {
-      state.token       = token;
-      state.tokenExpiry = Date.now() + (parseInt(expiry) || 3600) * 1000;
-      save();
-      history.replaceState(null, '', window.location.pathname);
-    }
-  }
-
-  // Check of token nog geldig is (met 5 minuten marge)
-  if (state.token && state.tokenExpiry && Date.now() < state.tokenExpiry - 300000) {
+  // Controleer of er een geldig opgeslagen token is
+  if (state.token && state.tokenExpiry && Date.now() < state.tokenExpiry - 60000) {
     setGoogleVerbonden(true);
     loadCalendar();
+    setTimeout(() => cloudLoad(), 800);
   } else {
-    // Token ontbreekt of verlopen — reset
-    state.token       = null;
-    state.tokenExpiry = null;
-    save();
+    // Token ontbreekt of verlopen
+    if (state.token) {
+      state.token = null;
+      state.tokenExpiry = null;
+      save();
+    }
     setGoogleVerbonden(false);
     showDemoCalendar();
   }
@@ -831,8 +854,27 @@ function setGoogleVerbonden(verbonden) {
   if (btnEl)  btnEl.style.display  = verbonden ? 'none' : 'flex';
 }
 
-// CROSS-DEVICE SYNC via Google Drive (App Data folder - onzichtbaar voor gebruiker)
-// Wordt automatisch gebruikt als de Google agenda al verbonden is
+// CROSS-DEVICE SYNC via Google Drive
+// Data wordt opgeslagen als kawaii-kids-data.json in de Drive van mathieu.w@gmail.com
+async function driveRequest(url, options = {}) {
+  if (!state.token) return null;
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      'Authorization': 'Bearer ' + state.token,
+      ...(options.headers || {})
+    }
+  });
+  if (res.status === 401) {
+    // Token verlopen
+    state.token = null;
+    state.tokenExpiry = null;
+    save();
+    setGoogleVerbonden(false);
+    return null;
+  }
+  return res;
+}
 
 async function cloudSave() {
   if (!state.token) return;
@@ -840,305 +882,82 @@ async function cloudSave() {
     const inhoud = JSON.stringify({
       lily: { moods: state.lily.moods, stickers: state.lily.stickers, prog: state.lily.prog, done: state.lily.done },
       mila: { moods: state.mila.moods, stickers: state.mila.stickers, prog: state.mila.prog, done: state.mila.done },
+      weekSleutel: state.weekSleutel
     });
 
-    // Zoek bestaand bestand op naam (drive.file ziet alleen bestanden die deze app zelf maakte)
-    const zoek = await fetch(
-      "https://www.googleapis.com/drive/v3/files?q=name%3D'kawaii-kids-data.json'+and+trashed%3Dfalse&fields=files(id)",
-      { headers: { Authorization: `Bearer ${state.token}` } }
+    // Zoek bestaand bestand
+    const zoekRes = await driveRequest(
+      "https://www.googleapis.com/drive/v3/files?q=name%3D'kawaii-kids-data.json'+and+trashed%3Dfalse&fields=files(id)"
     );
-    if (!zoek.ok) return;
-    const zoekData = await zoek.json();
+    if (!zoekRes) return;
+    const zoekData = await zoekRes.json();
     const bestaandId = zoekData.files && zoekData.files[0] ? zoekData.files[0].id : null;
 
     const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify({ name: 'kawaii-kids-data.json', mimeType: 'application/json' })], { type: 'application/json' }));
+    form.append('metadata', new Blob([JSON.stringify({
+      name: 'kawaii-kids-data.json',
+      mimeType: 'application/json'
+    })], { type: 'application/json' }));
     form.append('file', new Blob([inhoud], { type: 'application/json' }));
 
-    const url = bestaandId
-      ? `https://www.googleapis.com/upload/drive/v3/files/${bestaandId}?uploadType=multipart`
+    const uploadUrl = bestaandId
+      ? 'https://www.googleapis.com/upload/drive/v3/files/' + bestaandId + '?uploadType=multipart'
       : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
 
-    await fetch(url, {
-      method: bestaandId ? 'PATCH' : 'POST',
-      headers: { Authorization: `Bearer ${state.token}` },
-      body: form
-    });
+    await driveRequest(uploadUrl, { method: bestaandId ? 'PATCH' : 'POST', body: form });
   } catch(e) { /* stille fout */ }
 }
 
 async function cloudLoad() {
   if (!state.token) return;
   try {
-    // Zoek het databestand op naam
-    const zoek = await fetch(
-      "https://www.googleapis.com/drive/v3/files?q=name%3D'kawaii-kids-data.json'+and+trashed%3Dfalse&fields=files(id,modifiedTime)",
-      { headers: { Authorization: `Bearer ${state.token}` } }
+    const zoekRes = await driveRequest(
+      "https://www.googleapis.com/drive/v3/files?q=name%3D'kawaii-kids-data.json'+and+trashed%3Dfalse&fields=files(id,modifiedTime)"
     );
-    if (!zoek.ok) return;
-    const zoekData = await zoek.json();
+    if (!zoekRes) return;
+    const zoekData = await zoekRes.json();
     if (!zoekData.files || !zoekData.files[0]) return;
 
-    // Laad bestandsinhoud
-    const r = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${zoekData.files[0].id}?alt=media`,
-      { headers: { Authorization: `Bearer ${state.token}` } }
+    const fileRes = await driveRequest(
+      'https://www.googleapis.com/drive/v3/files/' + zoekData.files[0].id + '?alt=media'
     );
-    if (!r.ok) return;
-    const cloudData = await r.json();
+    if (!fileRes) return;
+    const cloudData = await fileRes.json();
 
-    // Merge cloud + lokaal: neem het meeste van beide
+    // Merge: combineer cloud + lokale data, neem altijd het meeste
     ['lily', 'mila'].forEach(kid => {
       if (!cloudData[kid]) return;
-      // Moods: samenvoegen (cloud + lokaal)
       state[kid].moods = Object.assign({}, state[kid].moods, cloudData[kid].moods || {});
-      // Stickers: alleen nieuwe toevoegen
       const bestaand = new Set(state[kid].stickers.map(s => s.name + s.date));
       (cloudData[kid].stickers || []).forEach(s => {
         if (!bestaand.has(s.name + s.date)) state[kid].stickers.push(s);
       });
-      // Voortgang: neem het maximum
       Object.entries(cloudData[kid].prog || {}).forEach(([k, v]) => {
         state[kid].prog[k] = Math.max(state[kid].prog[k] || 0, v);
       });
       Object.assign(state[kid].done, cloudData[kid].done || {});
     });
+    if (cloudData.weekSleutel) state.weekSleutel = cloudData.weekSleutel;
 
-    // Sla gemergede data lokaal op en herlaad UI
     localStorage.setItem('kawaii_v3', JSON.stringify(state));
     initTargets('lily');
     initTargets('mila');
+
     const today = new Date().toISOString().split('T')[0];
     ['lily', 'mila'].forEach(kid => {
       if (!state[kid].moods[today]) return;
       const m = state[kid].moods[today];
-      const sect = document.querySelector(`.${kid}-mood`);
+      const sect = document.querySelector('.' + kid + '-mood');
       if (sect) sect.querySelectorAll('.mood-btn').forEach(btn => {
         if (btn.querySelector('.mood-emoji').textContent === m.emoji) btn.classList.add('selected');
       });
-      const noteEl = document.getElementById(`${kid}Note`);
+      const noteEl = document.getElementById(kid + 'Note');
       if (noteEl) noteEl.value = m.note || '';
       sel[kid] = { emoji: m.emoji, label: m.label };
     });
-  } catch(e) { /* stille fout — localStorage versie blijft actief */ }
+  } catch(e) { /* stille fout */ }
 }
 
-// DATE
-function setupDate(){
-  const n=new Date();
-  document.getElementById('dateStrip').textContent=`📅 ${DUTCH_DAYS[n.getDay()]} ${n.getDate()} ${DUTCH_MONTHS[n.getMonth()]} ${n.getFullYear()}`;
-}
-
-// WEATHER - Open-Meteo met KMI ALARO model voor Herent, Vlaams-Brabant
-async function loadWeather(){
-  // Meerdere fallback URLs voor betere betrouwbaarheid
-  const urls = [
-    'https://api.open-meteo.com/v1/forecast?latitude=50.9333&longitude=4.6667&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m,relativehumidity_2m,precipitation&daily=temperature_2m_max,temperature_2m_min,weathercode,precipitation_sum&timezone=Europe%2FBrussels&forecast_days=1&models=best_match',
-    'https://api.open-meteo.com/v1/forecast?latitude=50.9333&longitude=4.6667&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m,relativehumidity_2m&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FBrussels&forecast_days=1'
-  ];
-
-  let data = null;
-  for (const url of urls) {
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const r = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeout);
-      if (r.ok) { data = await r.json(); break; }
-    } catch(e) { continue; }
-  }
-
-  if (!data) {
-    document.getElementById('weatherContent').innerHTML = `
-      <div style="text-align:center;padding:12px;">
-        <div style="font-size:2.5rem;">😅</div>
-        <div style="font-size:0.85rem;font-weight:700;color:#aaa;margin-top:6px;">Weer niet beschikbaar.<br>Controleer je internetverbinding!</div>
-      </div>`;
-    return;
-  }
-
-  try {
-    const temp     = Math.round(data.current.temperature_2m);
-    const feels    = data.current.apparent_temperature != null ? Math.round(data.current.apparent_temperature) : null;
-    const wind     = Math.round(data.current.windspeed_10m);
-    const hum      = data.current.relativehumidity_2m;
-    const code     = data.current.weathercode;
-    const max      = Math.round(data.daily.temperature_2m_max[0]);
-    const min      = Math.round(data.daily.temperature_2m_min[0]);
-    const precip   = data.daily.precipitation_sum ? data.daily.precipitation_sum[0] : null;
-    const { icon, desc } = wxInfo(code);
-
-    document.getElementById('weatherContent').innerHTML = `
-      <div class="weather-top">
-        <div class="weather-icon-big">${icon}</div>
-        <div class="weather-info">
-          <div class="weather-temp">${temp}°C <span style="font-size:1rem;font-weight:700;color:#aaa;">/ max ${max}°C</span></div>
-          <div class="weather-desc">${desc}</div>
-          <div class="weather-extra">
-            <div class="weather-pill">💨 ${wind} km/u</div>
-            <div class="weather-pill">💧 ${hum}%</div>
-            <div class="weather-pill">🌡️ ${min}° – ${max}°</div>
-            ${feels !== null ? `<div class="weather-pill">🤔 Voelt als ${feels}°</div>` : ''}
-            ${precip !== null && precip > 0 ? `<div class="weather-pill">☔ ${precip} mm</div>` : ''}
-          </div>
-          <div class="weather-source">📡 Data: Open-Meteo • KMI ALARO model • Herent</div>
-        </div>
-      </div>`;
-
-    // Kledingsuggestie: gebruik dagmax zodat kinderen zich niet te warm aankleden
-    showOutfit(temp, feels || temp, max, wind, code, precip || 0);
-  } catch(e) {
-    document.getElementById('weatherContent').innerHTML = '<div style="text-align:center;color:#aaa;font-size:0.85rem;padding:12px;font-weight:700;">😅 Weerfout - probeer opnieuw</div>';
-  }
-}
-
-function wxInfo(c){
-  const m={
-    0:'☀️ Stralend zonnig', 1:'🌤️ Overwegend zonnig', 2:'⛅ Gedeeltelijk bewolkt',
-    3:'☁️ Bewolkt', 45:'🌫️ Mistig', 48:'🌫️ Rijpige mist',
-    51:'🌦️ Lichte motregen', 53:'🌦️ Motregen', 55:'🌧️ Zware motregen',
-    61:'🌧️ Lichte regen', 63:'🌧️ Regen', 65:'🌧️ Zware regen',
-    71:'🌨️ Lichte sneeuw', 73:'🌨️ Sneeuw', 75:'❄️ Zware sneeuw',
-    77:'🌨️ IJskorrels', 80:'🌦️ Lichte buien', 81:'🌧️ Regenbuien',
-    82:'⛈️ Zware buien', 85:'🌨️ Sneeuwbuien', 95:'⛈️ Onweer', 99:'⛈️ Zwaar onweer'
-  };
-  const v = m[c] || '🌡️ Onbekend';
-  const spIdx = v.indexOf(' ');
-  return { icon: v.slice(0, spIdx), desc: v.slice(spIdx + 1) };
-}
-
-function showOutfit(tempNow, feels, tempMax, wind, code, precip) {
-  // Kledingsuggestie op basis van dagMAXIMUM — zodat kinderen zich niet te warm aankleden
-  // tempNow = huidige temp, feels = gevoelstemperatuur nu, tempMax = verwachte dagmax
-  const isRaining   = [51,53,55,61,63,65,80,81,82,95,99].includes(code);
-  const isSnowing   = [71,73,75,77,85].includes(code);
-  const isFoggy     = [45,48].includes(code);
-  const isSunny     = [0,1].includes(code);
-  const isWindy     = wind > 30;
-  const isVeryWindy = wind > 50;
-
-  // Basis kleding op dagmax, maar geef extra tip als het nu nog koud is
-  const koud_nu = feels <= 8;
-  let emoji, outfit, tip;
-
-  if (isSnowing || tempMax <= 2) {
-    emoji  = '🧥';
-    outfit = 'Dikke winterjas, muts, sjaal en handschoenen!';
-    tip    = isSnowing ? '❄️ Het sneeuwt — doe ook je laarzen aan!' : '🥶 Hele dag heel koud — goed inpakken!';
-  } else if (tempMax <= 8) {
-    emoji  = '🧤';
-    outfit = 'Warme jas, trui en handschoenen.';
-    tip    = isRaining ? '☔ Neem ook een paraplu mee!' : '🌬️ Koud en fris — lekker warm aankleden!';
-  } else if (tempMax <= 13) {
-    emoji  = '🧣';
-    outfit = 'Jas met een trui eronder, en een sjaal.';
-    tip    = isRaining ? '☔ Vergeet je regenjas niet!' : isWindy ? '💨 Fris en winderig — neem een sjaal!' : '🌿 Fris lenteweer — een laagje extra is fijn.';
-  } else if (tempMax <= 17) {
-    emoji  = '🧸';
-    outfit = 'Lichte jas of een dik vest.';
-    tip    = isRaining ? '🌧️ Neem je regenjas mee.' : isSunny ? '🌸 Mooi lenteweer! Een vest is genoeg.' : '🍂 Aangenaam — een jasje is handig.';
-    if (koud_nu) tip += ` (Nu nog ${feels}°, maar het wordt ${tempMax}° — neem een extra laagje mee dat je later uit kan trekken!)`;
-  } else if (tempMax <= 21) {
-    emoji  = '👕';
-    outfit = 'T-shirt met een licht vestje of dun jasje.';
-    tip    = isRaining ? '🌦️ Regenjas erbij voor als het regent!' : isWindy ? '💨 Een vestje beschermt tegen de wind.' : '😊 Lekker weer vandaag!';
-    if (koud_nu) tip += ` (Nu nog ${feels}°, loopt op naar ${tempMax}° — neem iets mee om uit te trekken!)`;
-  } else if (tempMax <= 26) {
-    emoji  = '👗';
-    outfit = 'T-shirt of jurkje — lekker luchtig!';
-    tip    = isSunny ? '☀️ Smeer ook zonnebrand op!' : precip > 1 ? '🌦️ Misschien een dun jasje meenemen.' : '🌸 Heerlijk warm weer vandaag!';
-    if (koud_nu) tip += ` (Nu nog ${feels}°, maar wordt ${tempMax}° — lichte kleren zijn perfect!)`;
-  } else {
-    emoji  = '🩱';
-    outfit = 'Zo luchtig mogelijk — shorts en t-shirt!';
-    tip    = isSunny ? '🌞 Vergeet zonnebrand en een petje niet! Drink veel water!' : '🔥 Heel warm — lekker koel blijven!';
-  }
-
-  if (isVeryWindy && !tip.includes('wind')) tip += ' 💨 Heel winderig — hou je hoed vast!';
-  if (isFoggy) tip += ' 🌫️ Mist — zichtbaar zijn is extra belangrijk!';
-
-  document.getElementById('outfitEmoji').textContent = emoji;
-  document.getElementById('outfitText').textContent  = outfit;
-  document.getElementById('outfitTip').textContent   = tip;
-  document.getElementById('outfitBox').style.display = 'block';
-}
-
-// WEETJE VAN DE DAG
-// Grote vaste lijst met zorgvuldig gekozen weetjes + kindvriendelijke links
-const WEETJES = [
-  { tekst: "Flamingo's worden roze van wat ze eten! Ze zijn van nature wit, maar garnalen en algen kleuren ze roze.", link: "https://www.nationalgeographic.nl/dieren/flamingo", label: "National Geographic" },
-  { tekst: "Octopussen hebben drie harten: twee pompen bloed naar de kieuwen, één naar de rest van het lichaam.", link: "https://nl.wikipedia.org/wiki/Octopus", label: "Wikipedia" },
-  { tekst: "Honing bederft nooit. Archeologen vonden honing van meer dan 3000 jaar oud in Egyptische graven — nog steeds eetbaar!", link: "https://nl.wikipedia.org/wiki/Honing", label: "Wikipedia" },
-  { tekst: "Een slak kan tot 3 jaar in winterslaap gaan als het te droog of te koud is.", link: "https://nl.wikipedia.org/wiki/Slakken", label: "Wikipedia" },
-  { tekst: "Vlinders proeven met sensors op hun poten! Zodra ze ergens op landen, weten ze meteen of het eetbaar is.", link: "https://nl.wikipedia.org/wiki/Dagvlinders", label: "Wikipedia" },
-  { tekst: "Dolfijnen slapen met één hersenhelft tegelijk. Zo kunnen ze blijven zwemmen én uitrusten tegelijk!", link: "https://nl.wikipedia.org/wiki/Dolfijnen", label: "Wikipedia" },
-  { tekst: "Katten hebben 32 spieren in elk oor, waardoor ze hun oren bijna 180 graden kunnen draaien.", link: "https://nl.wikipedia.org/wiki/Huiskat", label: "Wikipedia" },
-  { tekst: "Regenwormen hebben 5 harten! Ze pompen bloed door het hele lichaam van dit kleine diertje.", link: "https://nl.wikipedia.org/wiki/Regenworm", label: "Wikipedia" },
-  { tekst: "De tong van een giraf is blauwpaars en kan wel 45 centimeter lang worden — handig om bladeren te plukken!", link: "https://nl.wikipedia.org/wiki/Giraf", label: "Wikipedia" },
-  { tekst: "Een mannelijke pinguïn geeft zijn uitverkoren vrouwtje een kiezelsteentje als huwelijksaanzoek.", link: "https://nl.wikipedia.org/wiki/Pingu%C3%AFns", label: "Wikipedia" },
-  { tekst: "Koala's hebben unieke vingerafdrukken die bijna niet van die van mensen te onderscheiden zijn.", link: "https://nl.wikipedia.org/wiki/Koala", label: "Wikipedia" },
-  { tekst: "Olifanten zijn de enige zoogdieren die niet kunnen springen. Gelukkig hebben ze dat ook niet nodig!", link: "https://nl.wikipedia.org/wiki/Olifanten", label: "Wikipedia" },
-  { tekst: "Haaien bestaan al langer dan bomen! Haaien zwommen al 450 miljoen jaar geleden, bomen kwamen pas 350 miljoen jaar geleden.", link: "https://nl.wikipedia.org/wiki/Haaien", label: "Wikipedia" },
-  { tekst: "Mieren kunnen gewichten dragen van 50 keer hun eigen lichaamsgewicht. Dat is alsof jij een auto zou optillen!", link: "https://nl.wikipedia.org/wiki/Mieren", label: "Wikipedia" },
-  { tekst: "IJsberen hebben doorzichtige haren, geen witte. Ze lijken wit omdat licht erin weerkaatst.", link: "https://nl.wikipedia.org/wiki/IJsbeer", label: "Wikipedia" },
-  { tekst: "Bananen zijn botanisch gezien een bes! En een aardbei is dat juist niet — dat is een 'schijnvrucht'.", link: "https://nl.wikipedia.org/wiki/Banaan", label: "Wikipedia" },
-  { tekst: "Kwallen bestaan voor 95% uit water en hebben geen hersenen, hart of botten.", link: "https://nl.wikipedia.org/wiki/Kwallen", label: "Wikipedia" },
-  { tekst: "Zeepaardjes zijn de enige dieren waarbij het mannetje zwanger wordt en de jongen ter wereld brengt.", link: "https://nl.wikipedia.org/wiki/Zeepaardjes", label: "Wikipedia" },
-  { tekst: "Een groep uilen heet een 'parlement'. Een groep katten heet een 'clowder' en een groep haaien een 'school'.", link: "https://nl.wikipedia.org/wiki/Uil", label: "Wikipedia" },
-  { tekst: "Kameleons veranderen van kleur om hun stemming te tonen, niet om zich te camoufleren!", link: "https://nl.wikipedia.org/wiki/Kameleons", label: "Wikipedia" },
-  { tekst: "Een sneeuwvlok heeft altijd precies 6 hoekpunten. Geen enkele sneeuwvlok is identiek aan een andere.", link: "https://nl.wikipedia.org/wiki/Sneeuwvlok", label: "Wikipedia" },
-  { tekst: "De cheetah is het snelste landdier ter wereld en kan in 3 seconden versnellen tot 100 km/u!", link: "https://nl.wikipedia.org/wiki/Cheetah", label: "Wikipedia" },
-  { tekst: "Een blauwe vinvis is het grootste dier dat ooit op aarde heeft geleefd — groter dan de grootste dinosaurus!", link: "https://nl.wikipedia.org/wiki/Blauwe_vinvis", label: "Wikipedia" },
-  { tekst: "Bijen communiceren met een speciale 'bijen-dans' om aan te geven waar bloemen te vinden zijn.", link: "https://nl.wikipedia.org/wiki/Honingbij", label: "Wikipedia" },
-  { tekst: "Licht van de zon doet er 8 minuten en 20 seconden over om de aarde te bereiken.", link: "https://nl.wikipedia.org/wiki/Zon", label: "Wikipedia" },
-  { tekst: "Ons Melkwegstelsel bevat zo'n 200 tot 400 miljard sterren. Er zijn meer sterren dan zandkorrels op alle stranden samen!", link: "https://nl.wikipedia.org/wiki/Melkwegstelsel", label: "Wikipedia" },
-  { tekst: "Water is het enige natuurlijke materiaal dat in drie vormen voorkomt: vloeibaar, vast (ijs) en gas (stoom).", link: "https://nl.wikipedia.org/wiki/Water", label: "Wikipedia" },
-  { tekst: "De Grote Barrièrerif in Australië is zo groot dat hij vanuit de ruimte zichtbaar is!", link: "https://nl.wikipedia.org/wiki/Grote_Barrièrerif", label: "Wikipedia" },
-  { tekst: "Bomen communiceren met elkaar via schimmelnetwerken in de grond. Wetenschappers noemen dit het 'wood wide web'!", link: "https://nl.wikipedia.org/wiki/Mycorrhiza", label: "Wikipedia" },
-  { tekst: "De Amazone produceert 20% van alle zuurstof op aarde. Daarom noemen we het regenwoud de 'longen van de aarde'.", link: "https://nl.wikipedia.org/wiki/Amazoneregenwoud", label: "Wikipedia" },
-  { tekst: "Vulkanen bestaan ook op andere planeten! Op Mars staat de Olympus Mons — de grootste vulkaan in ons zonnestelsel.", link: "https://nl.wikipedia.org/wiki/Olympus_Mons", label: "Wikipedia" },
-  { tekst: "Menselijke botten zijn sterker dan beton! Een bot van 1 cm³ kan meer dan 1000 kg dragen.", link: "https://nl.wikipedia.org/wiki/Bot_(anatomie)", label: "Wikipedia" },
-  { tekst: "Popcorn bestaat al meer dan 5000 jaar. De oudste popcorn ter wereld werd gevonden in een grot in Peru.", link: "https://nl.wikipedia.org/wiki/Popcorn", label: "Wikipedia" },
-  { tekst: "Luiaards bewegen zo langzaam dat er algen op hun vacht groeien. Die groene kleur helpt hen zich te verstoppen!", link: "https://nl.wikipedia.org/wiki/Luiaards", label: "Wikipedia" },
-  { tekst: "De tong van een blauwe vinvis weegt meer dan een olifant — ongeveer 4000 kilogram!", link: "https://nl.wikipedia.org/wiki/Blauwe_vinvis", label: "Wikipedia" },
-  { tekst: "Aardbevingen op de maan heten 'maanbevingen'. Ze worden veroorzaakt door de zwaartekracht van de aarde.", link: "https://nl.wikipedia.org/wiki/Maanbeving", label: "Wikipedia" },
-  { tekst: "Een dag op Venus duurt langer dan een jaar op Venus. Venus draait zo traag dat één dag er 243 aardse dagen duurt!", link: "https://nl.wikipedia.org/wiki/Venus_(planeet)", label: "Wikipedia" },
-  { tekst: "Neushoorns zijn eigenlijk neven van paarden! Ze horen bij dezelfde dierenfamilie: de onevenhoevigen.", link: "https://nl.wikipedia.org/wiki/Neushoorn", label: "Wikipedia" },
-  { tekst: "De mantelgarnaaltje heeft 16 soorten kleureceptoren in zijn ogen. Mensen hebben er maar 3!", link: "https://nl.wikipedia.org/wiki/Bidsprinkhaankreeft", label: "Wikipedia" },
-  { tekst: "Sommige vogels slapen vliegend! Gierzwaluwen kunnen maanden lang non-stop vliegen zonder te landen.", link: "https://nl.wikipedia.org/wiki/Gierzwaluw", label: "Wikipedia" },
-  { tekst: "Een tintje is een beroerde naam voor een groep otters. Echte naam: een 'romp'! Otters houden elkaars poot vast om niet weg te drijven.", link: "https://nl.wikipedia.org/wiki/Zeeotter", label: "Wikipedia" },
-  { tekst: "Vuurvliegjes maken hun eigen licht aan via een chemische reactie in hun lichaam. Dit noemen we bioluminescentie.", link: "https://nl.wikipedia.org/wiki/Bioluminescentie", label: "Wikipedia" },
-  { tekst: "Ogen van een struisvogel zijn groter dan zijn hersenen! De ogen zijn elk zo groot als een biljartbal.", link: "https://nl.wikipedia.org/wiki/Struisvogel", label: "Wikipedia" },
-  { tekst: "Spinnen gebruiken hun web niet alleen om insecten te vangen — sommige spinnen eten hun eigen web op om het te recyclen!", link: "https://nl.wikipedia.org/wiki/Spinnen", label: "Wikipedia" },
-  { tekst: "Het hart van een garnaal zit in zijn hoofd. Eigenlijk is het een combinatie van hoofd en borststuk: de 'kop-borst'.", link: "https://nl.wikipedia.org/wiki/Garnalen", label: "Wikipedia" },
-  { tekst: "De pijlinktvis kan zo snel bewegen dat hij even de snelheid van een auto bereikt — via waterstraalstuwing!", link: "https://nl.wikipedia.org/wiki/Pijlinktvis", label: "Wikipedia" },
-  { tekst: "Krokodillen slikken stenen in om dieper te kunnen duiken als ballast. Die stenen helpen hen ook bij het verteren van voedsel.", link: "https://nl.wikipedia.org/wiki/Krokodillen", label: "Wikipedia" },
-  { tekst: "Quokka's staan bekend als het gelukkigste dier ter wereld — hun gezichtsvorm doet het altijd lijken alsof ze lachen!", link: "https://nl.wikipedia.org/wiki/Quokka", label: "Wikipedia" },
-  { tekst: "Een kat loopt altijd met zijn rechter- en linkerachterpoot tegelijk als hij vooruitgaat. Net als kamelen en giraffen!", link: "https://nl.wikipedia.org/wiki/Huiskat", label: "Wikipedia" },
-  { tekst: "Regenwouden bedekken maar 6% van het aardoppervlak maar herbergen meer dan de helft van alle planten- en diersoorten!", link: "https://nl.wikipedia.org/wiki/Tropisch_regenwoud", label: "Wikipedia" },
-  { tekst: "Wombats zijn de enige dieren ter wereld die blokvormige uitwerpselen produceren. Hiermee markeren ze hun territorium.", link: "https://nl.wikipedia.org/wiki/Wombats", label: "Wikipedia" },
-];
-
-function loadFact() {
-  const now = new Date();
-  const dagVanJaar = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
-  // Gebruik dag van het jaar + jaar zodat het jaarlijks roteert
-  const index = (dagVanJaar + now.getFullYear()) % WEETJES.length;
-  const weetje = WEETJES[index];
-  toonFact(weetje.tekst, weetje.link, weetje.label);
-}
-
-function toonFact(tekst, link, label) {
-  document.getElementById('factText').textContent = tekst;
-  const linkEl = document.getElementById('factLink');
-  if (linkEl && link) {
-    linkEl.href  = link;
-    linkEl.title = `Lees meer op ${label}`;
-    linkEl.innerHTML = `📖 Lees meer op ${label}`;
-    document.getElementById('factLeesMeer').style.display = 'block';
-  }
-  document.getElementById('factNum').textContent = `Weetje ${(Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / 86400000) % WEETJES.length) + 1} van ${WEETJES.length}`;
-}
 // WEKELIJKSE RESET
 function getWeekSleutel() {
   // Geeft "JJJJ-WW" — week begint op maandag, reset op zondag 23:59
