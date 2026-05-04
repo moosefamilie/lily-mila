@@ -958,6 +958,280 @@ async function cloudLoad() {
   } catch(e) { /* stille fout */ }
 }
 
+
+// DATUM SETUP
+function setupDate() {
+  const now = new Date();
+  const dag = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag'][now.getDay()];
+  const maand = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'][now.getMonth()];
+  const el = document.getElementById('dateStrip');
+  if (el) el.textContent = '📅 ' + dag + ' ' + now.getDate() + ' ' + maand + ' ' + now.getFullYear();
+}
+
+// WEER
+async function loadWeather() {
+  const urls = [
+    'https://api.open-meteo.com/v1/forecast?latitude=50.9333&longitude=4.6667&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m,relativehumidity_2m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&timezone=Europe%2FBrussels&forecast_days=1&models=best_match',
+    'https://api.open-meteo.com/v1/forecast?latitude=50.9333&longitude=4.6667&current=temperature_2m,apparent_temperature,weathercode,windspeed_10m,relativehumidity_2m&daily=temperature_2m_max,temperature_2m_min&timezone=Europe%2FBrussels&forecast_days=1'
+  ];
+  let data = null;
+  for (const url of urls) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const r = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (r.ok) { data = await r.json(); break; }
+    } catch(e) { continue; }
+  }
+  if (!data) {
+    const el = document.getElementById('weatherContent');
+    if (el) el.innerHTML = '<div style="text-align:center;padding:12px;"><div style="font-size:2.5rem;">😅</div><div style="font-size:0.85rem;font-weight:700;color:#aaa;margin-top:6px;">Weer niet beschikbaar.<br>Controleer je internetverbinding!</div></div>';
+    return;
+  }
+  try {
+    const temp  = Math.round(data.current.temperature_2m);
+    const feels = data.current.apparent_temperature != null ? Math.round(data.current.apparent_temperature) : null;
+    const wind  = Math.round(data.current.windspeed_10m);
+    const hum   = data.current.relativehumidity_2m;
+    const code  = data.current.weathercode;
+    const max   = Math.round(data.daily.temperature_2m_max[0]);
+    const min   = Math.round(data.daily.temperature_2m_min[0]);
+    const precip = data.daily.precipitation_sum ? data.daily.precipitation_sum[0] : null;
+    const { icon, desc } = wxInfo(code);
+    const el = document.getElementById('weatherContent');
+    if (el) el.innerHTML = '<div class="weather-top">'
+      + '<div class="weather-icon-big">' + icon + '</div>'
+      + '<div class="weather-info">'
+      + '<div class="weather-temp">' + temp + '°C <span style="font-size:1rem;font-weight:700;color:#aaa;">/ max ' + max + '°C</span></div>'
+      + '<div class="weather-desc">' + desc + '</div>'
+      + '<div class="weather-extra">'
+      + '<div class="weather-pill">💨 ' + wind + ' km/u</div>'
+      + '<div class="weather-pill">💧 ' + hum + '%</div>'
+      + '<div class="weather-pill">🌡️ ' + min + '° – ' + max + '°</div>'
+      + (feels !== null ? '<div class="weather-pill">🤔 Voelt als ' + feels + '°</div>' : '')
+      + (precip !== null && precip > 0 ? '<div class="weather-pill">☔ ' + precip + ' mm</div>' : '')
+      + '</div>'
+      + '<div class="weather-source">📡 Data: Open-Meteo • KMI ALARO model • Herent</div>'
+      + '</div></div>';
+    showOutfit(temp, feels || temp, max, wind, code, precip || 0);
+  } catch(e) {
+    const el = document.getElementById('weatherContent');
+    if (el) el.innerHTML = '<div style="text-align:center;color:#aaa;font-size:0.85rem;padding:12px;font-weight:700;">😅 Weerfout - probeer opnieuw</div>';
+  }
+}
+
+function wxInfo(c) {
+  const m = {0:'☀️ Stralend zonnig',1:'🌤️ Overwegend zonnig',2:'⛅ Gedeeltelijk bewolkt',3:'☁️ Bewolkt',45:'🌫️ Mistig',48:'🌫️ Rijpige mist',51:'🌦️ Lichte motregen',53:'🌦️ Motregen',55:'🌧️ Zware motregen',61:'🌧️ Lichte regen',63:'🌧️ Regen',65:'🌧️ Zware regen',71:'🌨️ Lichte sneeuw',73:'🌨️ Sneeuw',75:'❄️ Zware sneeuw',77:'🌨️ IJskorrels',80:'🌦️ Lichte buien',81:'🌧️ Regenbuien',82:'⛈️ Zware buien',85:'🌨️ Sneeuwbuien',95:'⛈️ Onweer',99:'⛈️ Zwaar onweer'};
+  const v = m[c] || '🌡️ Onbekend';
+  const spIdx = v.indexOf(' ');
+  return { icon: v.slice(0, spIdx), desc: v.slice(spIdx + 1) };
+}
+
+function showOutfit(tempNow, feels, tempMax, wind, code, precip) {
+  const isRaining   = [51,53,55,61,63,65,80,81,82,95,99].includes(code);
+  const isSnowing   = [71,73,75,77,85].includes(code);
+  const isFoggy     = [45,48].includes(code);
+  const isSunny     = [0,1].includes(code);
+  const isWindy     = wind > 30;
+  const isVeryWindy = wind > 50;
+  const koud_nu     = feels <= 8;
+  let emoji, outfit, tip;
+  if (isSnowing || tempMax <= 2) {
+    emoji = '🧥'; outfit = 'Dikke winterjas, muts, sjaal en handschoenen!';
+    tip = isSnowing ? '❄️ Het sneeuwt — doe ook je laarzen aan!' : '🥶 Hele dag heel koud — goed inpakken!';
+  } else if (tempMax <= 8) {
+    emoji = '🧤'; outfit = 'Warme jas, trui en handschoenen.';
+    tip = isRaining ? '☔ Neem ook een paraplu mee!' : '🌬️ Koud en fris — lekker warm aankleden!';
+  } else if (tempMax <= 13) {
+    emoji = '🧣'; outfit = 'Jas met een trui eronder, en een sjaal.';
+    tip = isRaining ? '☔ Vergeet je regenjas niet!' : isWindy ? '💨 Fris en winderig — neem een sjaal!' : '🌿 Fris lenteweer — een laagje extra is fijn.';
+  } else if (tempMax <= 17) {
+    emoji = '🧸'; outfit = 'Lichte jas of een dik vest.';
+    tip = isRaining ? '🌧️ Neem je regenjas mee.' : isSunny ? '🌸 Mooi lenteweer! Een vest is genoeg.' : '🍂 Aangenaam — een jasje is handig.';
+    if (koud_nu) tip += ' (Nu nog ' + feels + '°, maar het wordt ' + tempMax + '° — neem een extra laagje mee!)';
+  } else if (tempMax <= 21) {
+    emoji = '👕'; outfit = 'T-shirt met een licht vestje of dun jasje.';
+    tip = isRaining ? '🌦️ Regenjas erbij voor als het regent!' : isWindy ? '💨 Een vestje beschermt tegen de wind.' : '😊 Lekker weer vandaag!';
+    if (koud_nu) tip += ' (Nu nog ' + feels + '°, loopt op naar ' + tempMax + '° — neem iets mee om uit te trekken!)';
+  } else if (tempMax <= 26) {
+    emoji = '👗'; outfit = 'T-shirt of jurkje — lekker luchtig!';
+    tip = isSunny ? '☀️ Smeer ook zonnebrand op!' : precip > 1 ? '🌦️ Misschien een dun jasje meenemen.' : '🌸 Heerlijk warm weer vandaag!';
+    if (koud_nu) tip += ' (Nu nog ' + feels + '°, maar wordt ' + tempMax + '° — lichte kleren zijn perfect!)';
+  } else {
+    emoji = '🩱'; outfit = 'Zo luchtig mogelijk — shorts en t-shirt!';
+    tip = isSunny ? '🌞 Vergeet zonnebrand en een petje niet! Drink veel water!' : '🔥 Heel warm — lekker koel blijven!';
+  }
+  if (isVeryWindy && !tip.includes('wind')) tip += ' 💨 Heel winderig — hou je hoed vast!';
+  if (isFoggy) tip += ' 🌫️ Mist — zichtbaar zijn is extra belangrijk!';
+  const outfitBox = document.getElementById('outfitBox');
+  const outfitEmoji = document.getElementById('outfitEmoji');
+  const outfitText = document.getElementById('outfitText');
+  const outfitTip = document.getElementById('outfitTip');
+  if (outfitEmoji) outfitEmoji.textContent = emoji;
+  if (outfitText) outfitText.textContent = outfit;
+  if (outfitTip) outfitTip.textContent = tip;
+  if (outfitBox) outfitBox.style.display = 'block';
+}
+
+// WEETJE - vaste lijst met kindvriendelijke links
+function loadFact() {
+  const now = new Date();
+  const dagVanJaar = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+  const index = (dagVanJaar + now.getFullYear()) % WEETJES.length;
+  toonFact(WEETJES[index].tekst, WEETJES[index].link, WEETJES[index].label);
+}
+
+function toonFact(tekst, link, label) {
+  const factText = document.getElementById('factText');
+  const factLink = document.getElementById('factLink');
+  const factLeesMeer = document.getElementById('factLeesMeer');
+  const factNum = document.getElementById('factNum');
+  if (factText) factText.textContent = tekst;
+  if (factLink && link) {
+    factLink.href = link;
+    factLink.title = 'Lees meer op ' + label;
+    factLink.innerHTML = '📖 Lees meer op ' + label;
+  }
+  if (factLeesMeer) factLeesMeer.style.display = 'block';
+  if (factNum) {
+    const now = new Date();
+    const dagVanJaar = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
+    factNum.textContent = 'Weetje ' + ((dagVanJaar % WEETJES.length) + 1) + ' van ' + WEETJES.length;
+  }
+}
+
+// AGENDA
+function datumStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function getMaandag(off) {
+  const now = new Date();
+  const dag = now.getDay();
+  const diff = (dag === 0) ? -6 : 1 - dag;
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff + off * 7);
+}
+
+async function loadCalendar(off) {
+  if (off === undefined) off = 0;
+  weekOffset = off;
+  currentMonday = getMaandag(off);
+  const zondag = new Date(currentMonday.getFullYear(), currentMonday.getMonth(), currentMonday.getDate() + 6, 23, 59, 59);
+  if (!state.token) { showDemoCalendar(); return; }
+  try {
+    const calList = await driveRequest(
+      'https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50'
+    );
+    if (!calList) { showDemoCalendar(); return; }
+    const calData = await calList.json();
+    calKleurMap = {}; calNaamMap = {};
+    (calData.items || []).forEach((cal, idx) => {
+      calKleurMap[cal.id] = CAL_KLEUREN[idx % CAL_KLEUREN.length];
+      calNaamMap[cal.id]  = cal.summary || cal.id;
+    });
+    const tijdMin = currentMonday.toISOString();
+    const tijdMax = zondag.toISOString();
+    const promises = (calData.items || []).map(cal =>
+      driveRequest(
+        'https://www.googleapis.com/calendar/v3/calendars/' + encodeURIComponent(cal.id) + '/events'
+        + '?timeMin=' + tijdMin + '&timeMax=' + tijdMax
+        + '&singleEvents=true&orderBy=startTime&maxResults=100'
+      ).then(r => r ? r.json() : { items: [] })
+       .then(d => (d.items || []).map(e => Object.assign({}, e, { _calId: cal.id })))
+       .catch(() => [])
+    );
+    const results = await Promise.all(promises);
+    calEvents = results.flat();
+    renderWeek(calEvents, false, calData.items || []);
+  } catch(e) { showDemoCalendar(); }
+}
+
+function showDemoCalendar() {
+  currentMonday = getMaandag(weekOffset);
+  calKleurMap = { demo: '#FF85A1' };
+  calNaamMap  = { demo: 'Voorbeeldagenda' };
+  const ma = currentMonday;
+  const D  = (o, h, m) => new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + o, h, m, 0).toISOString();
+  const Ds = o => datumStr(new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + o));
+  calEvents = [
+    {summary:'🏫 School',         _calId:'demo', start:{dateTime:D(0,8,30)},  end:{dateTime:D(0,15,0)}},
+    {summary:'🏫 School',         _calId:'demo', start:{dateTime:D(1,8,30)},  end:{dateTime:D(1,15,0)}},
+    {summary:'⚽ Voetbaltraining', _calId:'demo', start:{dateTime:D(1,17,0)},  end:{dateTime:D(1,18,30)}},
+    {summary:'🏫 School',         _calId:'demo', start:{dateTime:D(2,8,30)},  end:{dateTime:D(2,15,0)}},
+    {summary:'🎨 Tekenen',        _calId:'demo', start:{dateTime:D(2,15,30)}, end:{dateTime:D(2,16,30)}},
+    {summary:'🏫 School',         _calId:'demo', start:{dateTime:D(3,8,30)},  end:{dateTime:D(3,15,0)}},
+    {summary:'🏫 School',         _calId:'demo', start:{dateTime:D(4,8,30)},  end:{dateTime:D(4,15,0)}},
+    {summary:'🎉 Speelafspraak',  _calId:'demo', start:{dateTime:D(4,15,30)}, end:{dateTime:D(4,17,0)}},
+    {summary:'🎠 Uitstap',        _calId:'demo', start:{date:Ds(5)}},
+  ];
+  renderWeek(calEvents, true, []);
+}
+
+function eventsVoorDag(dagStr) {
+  return calEvents.filter(e => {
+    const s = e.start.date ? e.start.date : datumStr(new Date(e.start.dateTime));
+    return s === dagStr;
+  }).sort((a, b) => {
+    const ta = a.start.dateTime ? new Date(a.start.dateTime) : new Date(a.start.date);
+    const tb = b.start.dateTime ? new Date(b.start.dateTime) : new Date(b.start.date);
+    return ta - tb;
+  });
+}
+
+function eventBlokHTML(e) {
+  const kleur = calKleurMap[e._calId] || '#FF85A1';
+  let tijdStr = '';
+  if (e.start.dateTime) {
+    const s = new Date(e.start.dateTime);
+    tijdStr = String(s.getHours()).padStart(2,'0') + ':' + String(s.getMinutes()).padStart(2,'0');
+  }
+  return '<div class="event-blok" style="border-left-color:' + kleur + ';background:' + kleur + '18;">'
+    + (tijdStr ? '<div class="event-blok-tijd">' + tijdStr + '</div>' : '')
+    + '<div class="event-blok-naam">' + (e.summary || 'Afspraak') + '</div>'
+    + '</div>';
+}
+
+function renderWeek(evts, demo, calLijst) {
+  const now = new Date();
+  const ma  = currentMonday;
+  const zo  = new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + 6);
+  const wl  = ma.getDate() + ' ' + DUTCH_MONTHS[ma.getMonth()] + ' – ' + zo.getDate() + ' ' + DUTCH_MONTHS[zo.getMonth()];
+  const todayStr = datumStr(now);
+  let html = '<div class="week-nav">'
+    + '<button class="week-btn" onclick="loadCalendar(' + (weekOffset-1) + ')">◀</button>'
+    + '<span class="week-label">📅 ' + wl + '</span>'
+    + '<button class="week-btn" onclick="loadCalendar(' + (weekOffset+1) + ')">▶</button>'
+    + '</div>';
+  if (demo) html += '<div style="text-align:center;font-size:0.72rem;color:#aaa;font-weight:700;margin-bottom:10px;">✨ Voorbeeldagenda — koppel Google Agenda voor echte afspraken</div>';
+  html += '<div class="week-grid">';
+  for (let i = 0; i < 7; i++) {
+    const d    = new Date(ma.getFullYear(), ma.getMonth(), ma.getDate() + i);
+    const dStr = datumStr(d);
+    const isVandaag = dStr === todayStr;
+    const dagEvts   = eventsVoorDag(dStr);
+    html += '<div class="dag-kolom">'
+      + '<div class="dag-header ' + (isVandaag ? 'vandaag' : '') + '">'
+      + '<div class="hdr-dag">' + DUTCH_DAYS_SHORT[d.getDay()] + '</div>'
+      + '<div class="hdr-num">' + d.getDate() + '</div>'
+      + '</div>'
+      + '<div class="dag-events">'
+      + (dagEvts.length ? dagEvts.map(e => eventBlokHTML(e)).join('') : '<div class="dag-leeg">vrij</div>')
+      + '</div></div>';
+  }
+  html += '</div>';
+  if (calLijst.length > 0) {
+    html += '<div class="cal-legenda">';
+    calLijst.forEach(cal => {
+      const kleur = calKleurMap[cal.id] || '#ccc';
+      html += '<div class="cal-legenda-item"><span class="cal-badge" style="background:' + kleur + '"></span>' + (cal.summary || cal.id) + '</div>';
+    });
+    html += '</div>';
+  }
+  const calEl = document.getElementById('calendarEvents');
+  if (calEl) calEl.innerHTML = html;
+}
+
 // WEKELIJKSE RESET
 function getWeekSleutel() {
   // Geeft "JJJJ-WW" — week begint op maandag, reset op zondag 23:59
