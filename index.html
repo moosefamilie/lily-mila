@@ -762,9 +762,18 @@ if (!state.lily)  state.lily  = {stickers:[], prog:{}, done:{}, moods:{}};
 if (!state.mila)  state.mila  = {stickers:[], prog:{}, done:{}, moods:{}};
 if (!state.token)       state.token       = null;
 if (!state.tokenExpiry) state.tokenExpiry = null;
+
+// Globale agenda variabelen
+let weekOffset = 0;
+let currentMonday = null;
+let calEvents = [];
+let calKleurMap = {};
+let calNaamMap  = {};
+const CAL_KLEUREN = ['#FF85A1','#9B6FE0','#5ECFA0','#FF9500','#5bc8e8','#e05c9b','#7BC67E','#FF6B6B'];
+
+// Globale datum arrays
 if (!state.weekSleutel) state.weekSleutel = '';
 const sel = {lily:{emoji:null,label:null}, mila:{emoji:null,label:null}};
-let weekOffset=0, calEvents=[];
 
 function save() {
   try {
@@ -774,72 +783,115 @@ function save() {
   if (state.token) cloudSave().catch(() => {});
 }
 
+
+// WEETJES VAN DE DAG - 50 kindvriendelijke weetjes met Wikipedia links
+const WEETJES = [
+  { tekst: "Flamingo's worden roze van wat ze eten! Ze zijn van nature wit, maar garnalen en algen kleuren ze roze.", link: "https://nl.wikipedia.org/wiki/Flamingo", label: "Wikipedia" },
+  { tekst: "Octopussen hebben drie harten: twee pompen bloed naar de kieuwen, één naar de rest van het lichaam.", link: "https://nl.wikipedia.org/wiki/Octopus", label: "Wikipedia" },
+  { tekst: "Honing bederft nooit. Archeologen vonden honing van meer dan 3000 jaar oud in Egyptische graven — nog steeds eetbaar!", link: "https://nl.wikipedia.org/wiki/Honing", label: "Wikipedia" },
+  { tekst: "Een slak kan tot 3 jaar in winterslaap gaan als het te droog of te koud is.", link: "https://nl.wikipedia.org/wiki/Slakken", label: "Wikipedia" },
+  { tekst: "Vlinders proeven met sensors op hun poten! Zodra ze ergens op landen, weten ze meteen of het eetbaar is.", link: "https://nl.wikipedia.org/wiki/Dagvlinders", label: "Wikipedia" },
+  { tekst: "Dolfijnen slapen met één hersenhelft tegelijk. Zo kunnen ze blijven zwemmen én uitrusten tegelijk!", link: "https://nl.wikipedia.org/wiki/Dolfijnen", label: "Wikipedia" },
+  { tekst: "Katten hebben 32 spieren in elk oor, waardoor ze hun oren bijna 180 graden kunnen draaien.", link: "https://nl.wikipedia.org/wiki/Huiskat", label: "Wikipedia" },
+  { tekst: "Regenwormen hebben 5 harten! Ze pompen bloed door het hele lichaam van dit kleine diertje.", link: "https://nl.wikipedia.org/wiki/Regenworm", label: "Wikipedia" },
+  { tekst: "De tong van een giraf is blauwpaars en kan wel 45 centimeter lang worden — handig om bladeren te plukken!", link: "https://nl.wikipedia.org/wiki/Giraf", label: "Wikipedia" },
+  { tekst: "Een mannelijke pinguïn geeft zijn uitverkoren vrouwtje een kiezelsteentje als huwelijksaanzoek.", link: "https://nl.wikipedia.org/wiki/Pingu%C3%AFns", label: "Wikipedia" },
+  { tekst: "Koala's hebben unieke vingerafdrukken die bijna niet van die van mensen te onderscheiden zijn.", link: "https://nl.wikipedia.org/wiki/Koala", label: "Wikipedia" },
+  { tekst: "Olifanten zijn de enige zoogdieren die niet kunnen springen. Gelukkig hebben ze dat ook niet nodig!", link: "https://nl.wikipedia.org/wiki/Olifanten", label: "Wikipedia" },
+  { tekst: "Haaien bestaan al langer dan bomen! Haaien zwommen al 450 miljoen jaar geleden, bomen kwamen pas 350 miljoen jaar geleden.", link: "https://nl.wikipedia.org/wiki/Haaien", label: "Wikipedia" },
+  { tekst: "Mieren kunnen gewichten dragen van 50 keer hun eigen lichaamsgewicht. Dat is alsof jij een auto zou optillen!", link: "https://nl.wikipedia.org/wiki/Mieren", label: "Wikipedia" },
+  { tekst: "IJsberen hebben doorzichtige haren, geen witte. Ze lijken wit omdat licht erin weerkaatst.", link: "https://nl.wikipedia.org/wiki/IJsbeer", label: "Wikipedia" },
+  { tekst: "Bananen zijn botanisch gezien een bes! En een aardbei is dat juist niet — dat is een schijnvrucht.", link: "https://nl.wikipedia.org/wiki/Banaan", label: "Wikipedia" },
+  { tekst: "Kwallen bestaan voor 95% uit water en hebben geen hersenen, hart of botten.", link: "https://nl.wikipedia.org/wiki/Kwallen", label: "Wikipedia" },
+  { tekst: "Zeepaardjes zijn de enige dieren waarbij het mannetje zwanger wordt en de jongen ter wereld brengt.", link: "https://nl.wikipedia.org/wiki/Zeepaardjes", label: "Wikipedia" },
+  { tekst: "Een groep uilen heet een parlement. Een groep katten heet een clowder en een groep haaien een school.", link: "https://nl.wikipedia.org/wiki/Uil", label: "Wikipedia" },
+  { tekst: "Kameleons veranderen van kleur om hun stemming te tonen, niet om zich te camoufleren!", link: "https://nl.wikipedia.org/wiki/Kameleons", label: "Wikipedia" },
+  { tekst: "Een sneeuwvlok heeft altijd precies 6 hoekpunten. Geen enkele sneeuwvlok is identiek aan een andere.", link: "https://nl.wikipedia.org/wiki/Sneeuwvlok", label: "Wikipedia" },
+  { tekst: "De cheetah is het snelste landdier ter wereld en kan in 3 seconden versnellen tot 100 km per uur!", link: "https://nl.wikipedia.org/wiki/Cheetah", label: "Wikipedia" },
+  { tekst: "Een blauwe vinvis is het grootste dier dat ooit op aarde heeft geleefd — groter dan de grootste dinosaurus!", link: "https://nl.wikipedia.org/wiki/Blauwe_vinvis", label: "Wikipedia" },
+  { tekst: "Bijen communiceren met een speciale bijen-dans om aan te geven waar bloemen te vinden zijn.", link: "https://nl.wikipedia.org/wiki/Honingbij", label: "Wikipedia" },
+  { tekst: "Licht van de zon doet er 8 minuten en 20 seconden over om de aarde te bereiken.", link: "https://nl.wikipedia.org/wiki/Zon", label: "Wikipedia" },
+  { tekst: "Ons Melkwegstelsel bevat zo'n 200 tot 400 miljard sterren — meer dan zandkorrels op alle stranden samen!", link: "https://nl.wikipedia.org/wiki/Melkwegstelsel", label: "Wikipedia" },
+  { tekst: "Water is het enige natuurlijke materiaal dat in drie vormen voorkomt: vloeibaar, vast (ijs) en gas (stoom).", link: "https://nl.wikipedia.org/wiki/Water", label: "Wikipedia" },
+  { tekst: "De Grote Barrièrerif in Australië is zo groot dat hij vanuit de ruimte zichtbaar is!", link: "https://nl.wikipedia.org/wiki/Grote_Barri%C3%A8rerif", label: "Wikipedia" },
+  { tekst: "Bomen communiceren met elkaar via schimmelnetwerken in de grond — wetenschappers noemen dit het wood wide web!", link: "https://nl.wikipedia.org/wiki/Mycorrhiza", label: "Wikipedia" },
+  { tekst: "De Amazone produceert 20% van alle zuurstof op aarde. Daarom noemen we het regenwoud de longen van de aarde.", link: "https://nl.wikipedia.org/wiki/Amazoneregenwoud", label: "Wikipedia" },
+  { tekst: "Op Mars staat de Olympus Mons — de grootste vulkaan in ons zonnestelsel, drie keer zo hoog als de Mount Everest!", link: "https://nl.wikipedia.org/wiki/Olympus_Mons", label: "Wikipedia" },
+  { tekst: "Menselijke botten zijn sterker dan beton! Een bot van 1 cm3 kan meer dan 1000 kg dragen.", link: "https://nl.wikipedia.org/wiki/Bot_(anatomie)", label: "Wikipedia" },
+  { tekst: "Popcorn bestaat al meer dan 5000 jaar. De oudste popcorn ter wereld werd gevonden in een grot in Peru.", link: "https://nl.wikipedia.org/wiki/Popcorn", label: "Wikipedia" },
+  { tekst: "Luiaards bewegen zo langzaam dat er algen op hun vacht groeien. Die groene kleur helpt hen zich te verstoppen!", link: "https://nl.wikipedia.org/wiki/Luiaards", label: "Wikipedia" },
+  { tekst: "Een dag op Venus duurt langer dan een jaar op Venus. Venus draait zo traag dat één dag er 243 aardse dagen duurt!", link: "https://nl.wikipedia.org/wiki/Venus_(planeet)", label: "Wikipedia" },
+  { tekst: "Neushoorns zijn eigenlijk neven van paarden! Ze horen bij dezelfde dierenfamilie: de onevenhoevigen.", link: "https://nl.wikipedia.org/wiki/Neushoorn", label: "Wikipedia" },
+  { tekst: "Sommige vogels slapen vliegend! Gierzwaluwen kunnen maanden lang non-stop vliegen zonder te landen.", link: "https://nl.wikipedia.org/wiki/Gierzwaluw", label: "Wikipedia" },
+  { tekst: "Zeeotters houden elkaars poot vast terwijl ze slapen, zodat ze niet weg drijven. Hoe lief is dat!", link: "https://nl.wikipedia.org/wiki/Zeeotter", label: "Wikipedia" },
+  { tekst: "Vuurvliegjes maken hun eigen licht aan via een chemische reactie in hun lichaam — bioluminescentie!", link: "https://nl.wikipedia.org/wiki/Bioluminescentie", label: "Wikipedia" },
+  { tekst: "De ogen van een struisvogel zijn groter dan zijn hersenen! De ogen zijn elk zo groot als een biljartbal.", link: "https://nl.wikipedia.org/wiki/Struisvogel", label: "Wikipedia" },
+  { tekst: "Spinnen eten hun eigen web op om het te recyclen en nieuwe zijde te maken. Heel slim en zuinig!", link: "https://nl.wikipedia.org/wiki/Spinnen", label: "Wikipedia" },
+  { tekst: "De pijlinktvis kan zo snel bewegen dat hij even de snelheid van een auto bereikt — via waterstraalstuwing!", link: "https://nl.wikipedia.org/wiki/Pijlinktvis", label: "Wikipedia" },
+  { tekst: "Krokodillen slikken stenen in als ballast zodat ze dieper kunnen duiken. Die stenen helpen ook bij spijsvertering.", link: "https://nl.wikipedia.org/wiki/Krokodillen", label: "Wikipedia" },
+  { tekst: "Quokka's staan bekend als het gelukkigste dier ter wereld — hun gezicht doet het altijd lijken alsof ze lachen!", link: "https://nl.wikipedia.org/wiki/Quokka", label: "Wikipedia" },
+  { tekst: "Regenwouden bedekken maar 6% van het aardoppervlak maar herbergen meer dan de helft van alle soorten!", link: "https://nl.wikipedia.org/wiki/Tropisch_regenwoud", label: "Wikipedia" },
+  { tekst: "Wombats zijn de enige dieren ter wereld die blokvormige uitwerpselen produceren om hun territorium te markeren.", link: "https://nl.wikipedia.org/wiki/Wombats", label: "Wikipedia" },
+  { tekst: "De mantisgarnaaltje heeft 16 soorten kleureceptoren in zijn ogen. Mensen hebben er maar 3!", link: "https://nl.wikipedia.org/wiki/Bidsprinkhaankreeft", label: "Wikipedia" },
+  { tekst: "Aardbevingen op de maan heten maanbevingen. Ze worden veroorzaakt door de zwaartekracht van de aarde.", link: "https://nl.wikipedia.org/wiki/Maanbeving", label: "Wikipedia" },
+  { tekst: "Een kat loopt altijd met zijn rechter- en linkerachterpoot tegelijk als hij vooruitgaat — net als kamelen!", link: "https://nl.wikipedia.org/wiki/Huiskat", label: "Wikipedia" },
+  { tekst: "Gorilla's hebben unieke neusafdrukken, net zoals mensen unieke vingerafdrukken hebben.", link: "https://nl.wikipedia.org/wiki/Gorilla", label: "Wikipedia" },
+  { tekst: "Zeesterren hebben geen bloed! Ze pompen zeewater door hun lichaam in plaats van bloed.", link: "https://nl.wikipedia.org/wiki/Zeesterren", label: "Wikipedia" },
+];
+
 // GOOGLE OAUTH + CROSS-DEVICE SYNC via Google Drive
 const CLIENT_ID = '379082100860-4q3fm4ulodqtkh7ktaoiv2l3fm2edf74.apps.googleusercontent.com';
 const SCOPES    = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.file';
 
 function connectGoogle() {
-  // Gebruik een popup venster — werkt betrouwbaarder dan redirect op GitHub Pages
+  // Sla huidige URL op als redirect target (zonder hash)
   const redirectUri = window.location.origin + window.location.pathname;
   const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth'
-    + '?client_id='      + encodeURIComponent(CLIENT_ID)
-    + '&redirect_uri='   + encodeURIComponent(redirectUri)
+    + '?client_id='    + encodeURIComponent(CLIENT_ID)
+    + '&redirect_uri=' + encodeURIComponent(redirectUri)
     + '&response_type=token'
-    + '&scope='          + encodeURIComponent(SCOPES)
+    + '&scope='        + encodeURIComponent(SCOPES)
     + '&login_hint=mathieu.w%40gmail.com'
     + '&prompt=select_account';
-
-  // Open in popup zodat de hoofdpagina niet verlaten wordt
-  const popup = window.open(authUrl, 'google-auth',
-    'width=500,height=650,left=' + (screen.width/2 - 250) + ',top=' + (screen.height/2 - 325));
-
-  // Luister op berichten van de popup
-  const interval = setInterval(() => {
-    try {
-      if (!popup || popup.closed) {
-        clearInterval(interval);
-        return;
-      }
-      const popupUrl = popup.location.href;
-      if (popupUrl && popupUrl.includes('access_token')) {
-        const hash   = popup.location.hash;
-        const params = new URLSearchParams(hash.substring(1));
-        const token  = params.get('access_token');
-        const expiry = params.get('expires_in');
-        popup.close();
-        clearInterval(interval);
-        if (token) {
-          state.token       = token;
-          state.tokenExpiry = Date.now() + (parseInt(expiry) || 3600) * 1000;
-          save();
-          setGoogleVerbonden(true);
-          loadCalendar();
-          // Laad cloud data na verbinding
-          setTimeout(() => cloudLoad(), 500);
-        }
-      }
-    } catch(e) {
-      // Cross-origin block — popup is nog op Google pagina, wachten...
-    }
-  }, 500);
+  window.location.href = authUrl;
 }
 
 function handleOAuth() {
-  // Controleer of er een geldig opgeslagen token is
+  // 1. Kijk of er een nieuw token in de URL hash zit (na redirect van Google)
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const token  = params.get('access_token');
+    const expiry = params.get('expires_in');
+    if (token) {
+      state.token       = token;
+      state.tokenExpiry = Date.now() + (parseInt(expiry) || 3600) * 1000;
+      save();
+      // Verwijder hash uit URL zonder page reload
+      history.replaceState(null, '', window.location.pathname);
+      setGoogleVerbonden(true);
+      loadCalendar();
+      setTimeout(() => cloudLoad(), 800);
+      return;
+    }
+  }
+
+  // 2. Kijk of er een geldig opgeslagen token is
   if (state.token && state.tokenExpiry && Date.now() < state.tokenExpiry - 60000) {
     setGoogleVerbonden(true);
     loadCalendar();
     setTimeout(() => cloudLoad(), 800);
-  } else {
-    // Token ontbreekt of verlopen
-    if (state.token) {
-      state.token = null;
-      state.tokenExpiry = null;
-      save();
-    }
-    setGoogleVerbonden(false);
-    showDemoCalendar();
+    return;
   }
+
+  // 3. Geen geldig token — toon demo agenda
+  if (state.token) {
+    state.token = null;
+    state.tokenExpiry = null;
+    save();
+  }
+  setGoogleVerbonden(false);
+  showDemoCalendar();
 }
 
 function setGoogleVerbonden(verbonden) {
@@ -853,7 +905,6 @@ function setGoogleVerbonden(verbonden) {
   if (hintEl) hintEl.style.display = verbonden ? 'none' : 'block';
   if (btnEl)  btnEl.style.display  = verbonden ? 'none' : 'flex';
 }
-
 // CROSS-DEVICE SYNC via Google Drive
 // Data wordt opgeslagen als kawaii-kids-data.json in de Drive van mathieu.w@gmail.com
 async function driveRequest(url, options = {}) {
